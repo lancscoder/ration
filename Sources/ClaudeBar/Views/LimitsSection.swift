@@ -5,9 +5,9 @@ struct LimitsSection: View {
     let state: AppState
 
     var body: some View {
-        Card {
-            SectionHeader("Limits", systemImage: "gauge.with.dots.needle.33percent",
-                          trailing: state.usage.plan.map { AnyView(PlanBadge(text: $0)) })
+        CollapsibleCard(section: .limits, prefs: state.prefs,
+                        trailing: state.usage.plan.map { AnyView(PlanBadge(text: $0)) },
+                        collapsedSummary: AnyView(summary)) {
             if let response = state.usage.response {
                 if let s = response.session { LimitRow(limit: s, state: state) }
                 if let w = response.weekly { LimitRow(limit: w, state: state) }
@@ -20,6 +20,14 @@ struct LimitsSection: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var summary: some View {
+        let r = state.usage.response
+        let parts = [r?.session.map { "5h \(Fmt.percent($0.utilization))" }, r?.weekly.map { "W \(Fmt.percent($0.utilization))" }]
+        return Text(parts.compactMap { $0 }.joined(separator: " · "))
+            .font(.caption.weight(.semibold).monospacedDigit())
+            .foregroundStyle(.secondary)
     }
 }
 

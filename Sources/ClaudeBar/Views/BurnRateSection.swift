@@ -9,10 +9,9 @@ struct BurnRateSection: View {
         if let session = state.usage.response?.session {
             let rate = BurnRateCalculator.sessionRate(samples: state.usage.samples, now: state.now, resetsAt: session.resetsAt)
             let forecast = BurnRateCalculator.forecast(current: session.utilization, rate: rate, resetsAt: session.resetsAt, now: state.now)
-            Card {
-                SectionHeader("Burn rate", systemImage: "flame",
-                              trailing: rate.map { AnyView(Text(String(format: "%.1f%%/h", $0.percentPerHour))
-                                  .font(.callout.weight(.semibold).monospacedDigit())) })
+            let rateText = rate.map { AnyView(Text(String(format: "%.1f%%/h", $0.percentPerHour))
+                .font(.callout.weight(.semibold).monospacedDigit())) }
+            CollapsibleCard(section: .burnRate, prefs: state.prefs, trailing: rateText, collapsedSummary: rateText) {
                 HStack(spacing: 6) {
                     Image(systemName: icon(forecast))
                         .foregroundStyle(color(forecast))

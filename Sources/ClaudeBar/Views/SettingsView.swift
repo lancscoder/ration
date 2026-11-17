@@ -31,6 +31,25 @@ struct SettingsView: View {
             }
 
             Section {
+                ForEach(PanelSection.allCases) { section in
+                    Toggle(isOn: Binding(get: { prefs.isVisible(section) }, set: { prefs.setVisible(section, $0) })) {
+                        Label(section.title, systemImage: section.systemImage)
+                    }
+                }
+                Picker("Token history", selection: $prefs.tokenChartStyle) {
+                    ForEach(TokenChartStyle.allCases) { Text($0.title).tag($0) }
+                }
+                if !prefs.collapsedSections.isEmpty {
+                    Button("Expand all sections") { prefs.collapsedSections = [] }
+                }
+            } header: {
+                Text("Panel sections")
+            } footer: {
+                Text("Click a section's title in the panel to collapse or expand it; ClaudeBar remembers your choice.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
                 Stepper(value: $prefs.pollInterval, in: Int(BackoffPolicy.minimumPollInterval)...3600, step: 60) {
                     LabeledContent("Check usage every", value: Fmt.duration(TimeInterval(prefs.pollInterval)))
                 }

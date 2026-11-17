@@ -23,8 +23,7 @@ struct SessionsSection: View {
     @State private var confirmingKill: String?
 
     var body: some View {
-        Card {
-            SectionHeader("Sessions", systemImage: "terminal", trailing: AnyView(summary))
+        CollapsibleCard(section: .sessions, prefs: state.prefs, trailing: AnyView(summary), collapsedSummary: AnyView(summary)) {
             if let error = state.sessionActionError {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.caption)
@@ -103,7 +102,7 @@ struct SessionRow: View {
             if confirmingKill == session.sessionId {
                 Button("Cancel") { confirmingKill = nil }
                     .controlSize(.small)
-                Button("Stop", role: .destructive) {
+                Button("Stop it", role: .destructive) {
                     confirmingKill = nil
                     onKill()
                 }
@@ -111,11 +110,20 @@ struct SessionRow: View {
                 .tint(.red)
             } else {
                 if !session.isLive {
-                    IconButton(systemImage: "arrow.uturn.forward.circle", help: "Resume in terminal (claude --resume)", action: onResume)
-                } else {
-                    IconButton(systemImage: "xmark.circle", help: "Stop this Claude process (SIGTERM)") {
-                        confirmingKill = session.sessionId
+                    Button(action: onResume) {
+                        Label("Resume", systemImage: "arrow.uturn.forward")
                     }
+                    .controlSize(.small)
+                    .help("Open your terminal running claude --resume in this project")
+                } else {
+                    Button {
+                        confirmingKill = session.sessionId
+                    } label: {
+                        Label("Stop", systemImage: "stop.fill")
+                    }
+                    .controlSize(.small)
+                    .opacity(hovering ? 1 : 0.6)
+                    .help("Stop this Claude process (SIGTERM)")
                 }
             }
         }

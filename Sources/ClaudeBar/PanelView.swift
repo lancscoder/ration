@@ -30,10 +30,10 @@ struct PanelView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
-            LimitsSection(state: state)
-            BurnRateSection(state: state)
-            TokensSection(state: state)
-            SessionsSection(state: state)
+            if prefs.isVisible(.limits) { LimitsSection(state: state) }
+            if prefs.isVisible(.burnRate) { BurnRateSection(state: state) }
+            if prefs.isVisible(.tokens) { TokensSection(state: state) }
+            if prefs.isVisible(.sessions) { SessionsSection(state: state) }
             FooterView(state: state)
         }
         .padding(12)
@@ -44,8 +44,17 @@ struct PanelView: View {
             Image(systemName: "bolt.fill").foregroundStyle(Color.accentColor)
             Text("ClaudeBar").font(.headline)
             Spacer()
+            Button {
+                ClaudeLauncher.open()
+            } label: {
+                Label(ClaudeLauncher.title, systemImage: "arrow.up.forward.app")
+            }
+            .controlSize(.small)
+            .help(ClaudeLauncher.desktopAppURL == nil ? "Open claude.ai in your browser" : "Open the Claude desktop app")
         }
     }
+
+    private var prefs: Preferences { state.prefs }
 }
 
 private struct HeightKey: PreferenceKey {

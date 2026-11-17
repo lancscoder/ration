@@ -56,6 +56,55 @@ struct UsageBar: View {
     }
 }
 
+/// A panel section whose header toggles it open/closed; the state is persisted in Preferences.
+struct CollapsibleCard<Content: View>: View {
+    let section: PanelSection
+    let prefs: Preferences
+    /// Shown on the right of the header (always, collapsed or not).
+    var trailing: AnyView?
+    /// Shown on the right of the header only while collapsed (a one-line summary).
+    var collapsedSummary: AnyView?
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        let collapsed = prefs.isCollapsed(section)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { prefs.toggleCollapsed(section) }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(collapsed ? 0 : 90))
+                            .frame(width: 10)
+                        Image(systemName: section.systemImage)
+                            .foregroundStyle(.secondary)
+                            .imageScale(.small)
+                        Text(section.title.uppercased())
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .tracking(0.5)
+                        Spacer(minLength: 4)
+                        if collapsed, let collapsedSummary { collapsedSummary }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(section.title), \(collapsed ? "collapsed" : "expanded")")
+                if !collapsed, let trailing { trailing }
+            }
+            if !collapsed {
+                content
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.045)))
+    }
+}
+
 struct Card<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {

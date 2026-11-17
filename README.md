@@ -9,9 +9,10 @@ A native macOS menu bar app that shows your Claude plan usage (5-hour and weekly
 - **Menu bar label:** 5-hour utilisation and time to reset (or weekly, or both). It turns amber at 60% and red at 85% (both configurable). The dot is green while a Claude Code session is working and blue when one has just finished and is waiting for you.
 - **Limits:** progress bars for the 5-hour session, the weekly limit and any model-specific weekly limits. Each shows a countdown and the wall-clock reset time. Extra-usage spend and limit, plus the weekly per-product breakdown, appear underneath.
 - **Burn rate:** %/hour over the last hour of the current 5-hour window, a forecast ("limit in ~2h10m" or "won't hit limit before reset"), and a sparkline of the window.
-- **Tokens:** Today (hourly) / 7 days / 14 days / All. Stacked bars per model and a totals table (input, output, cache write, cache read). Cache reads are hidden by default; press `c` to toggle them.
+- **Tokens:** Today (hourly) / 7 days / 14 days / All, as stacked columns or a day list (one row per day, newest first, as in rodrigondec's plugin), with a per-model totals table (input, output, cache write, cache read). Cache reads are hidden by default; press `c` to toggle them.
 - **Sessions:** running and recent sessions with project, model, state, last activity and tokens. **Resume** opens your terminal running `claude --resume <id>`. **Stop** sends SIGTERM after you confirm.
 - **Notifications:** sent when usage crosses 75% or 90% (configurable), once per window. Optionally also when a session goes from working to waiting.
+- **Panel:** **Open Claude** launches the Claude desktop app, or claude.ai if it isn't installed. Click a section title to collapse or expand it; ClaudeBar remembers your choice. Settings → Panel sections shows or hides each section. Hovering a footer button shows its name.
 - **Keyboard (panel open):** `r` refreshes, `c` toggles cache reads, `Esc` closes.
 
 Inspired by [rodrigondec/omarchy-claude-tokens](https://github.com/rodrigondec/omarchy-claude-tokens), [oguzkarcan/claude-usage](https://github.com/oguzkarcan/claude-usage), [mryll/claudebar](https://github.com/mryll/claudebar) and [ai-usagebar](https://github.com/akitaonrails/ai-usagebar).

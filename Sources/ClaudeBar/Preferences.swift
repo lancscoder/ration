@@ -35,6 +35,34 @@ enum TerminalChoice: String, CaseIterable, Identifiable {
     }
 }
 
+enum PanelSection: String, CaseIterable, Identifiable {
+    case limits, burnRate, tokens, sessions
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .limits: return "Limits"
+        case .burnRate: return "Burn rate"
+        case .tokens: return "Tokens"
+        case .sessions: return "Sessions"
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .limits: return "gauge.with.dots.needle.33percent"
+        case .burnRate: return "flame"
+        case .tokens: return "chart.bar.xaxis"
+        case .sessions: return "terminal"
+        }
+    }
+}
+
+enum TokenChartStyle: String, CaseIterable, Identifiable {
+    case columns, dayList
+    var id: String { rawValue }
+    var title: String { self == .columns ? "Columns" : "Day list" }
+    var systemImage: String { self == .columns ? "chart.bar.fill" : "list.bullet.below.rectangle" }
+}
+
 /// User settings, persisted to `UserDefaults`.
 @MainActor
 @Observable
@@ -53,6 +81,19 @@ final class Preferences {
     var notifyThresholds: String { didSet { defaults.set(notifyThresholds, forKey: "notifyThresholds") } }
     var notifyWaiting: Bool { didSet { defaults.set(notifyWaiting, forKey: "notifyWaiting") } }
 
+    var hiddenSections: Set<String> { didSet { defaults.set(Array(hiddenSections).sorted(), forKey: "hiddenSections") } }
+    var collapsedSections: Set<String> { didSet { defaults.set(Array(collapsedSections).sorted(), forKey: "collapsedSections") } }
+    var tokenChartStyle: TokenChartStyle { didSet { defaults.set(tokenChartStyle.rawValue, forKey: "tokenChartStyle") } }
+
+    func isVisible(_ section: PanelSection) -> Bool { !hiddenSections.contains(section.rawValue) }
+    func setVisible(_ section: PanelSection, _ visible: Bool) {
+        if visible { hiddenSections.remove(section.rawValue) } else { hiddenSections.insert(section.rawValue) }
+    }
+    func isCollapsed(_ section: PanelSection) -> Bool { collapsedSections.contains(section.rawValue) }
+    func toggleCollapsed(_ section: PanelSection) {
+        if isCollapsed(section) { collapsedSections.remove(section.rawValue) } else { collapsedSections.insert(section.rawValue) }
+    }
+
     var parsedNotifyThresholds: [Int] { ThresholdTracker.parseThresholds(notifyThresholds) }
 
     init(defaults: UserDefaults = .standard) {
@@ -69,6 +110,7 @@ final class Preferences {
             "notifyUsage": true,
             "notifyThresholds": "75, 90",
             "notifyWaiting": false,
+            "tokenChartStyle": TokenChartStyle.columns.rawValue,
         ])
         pollInterval = max(Int(BackoffPolicy.minimumPollInterval), defaults.integer(forKey: "pollInterval"))
         warningThreshold = defaults.integer(forKey: "warningThreshold")
@@ -81,6 +123,9 @@ final class Preferences {
         notifyUsage = defaults.bool(forKey: "notifyUsage")
         notifyThresholds = defaults.string(forKey: "notifyThresholds") ?? "75, 90"
         notifyWaiting = defaults.bool(forKey: "notifyWaiting")
+        hiddenSections = Set(defaults.stringArray(forKey: "hiddenSections") ?? [])
+        collapsedSections = Set(defaults.stringArray(forKey: "collapsedSections") ?? [])
+        tokenChartStyle = TokenChartStyle(rawValue: defaults.string(forKey: "tokenChartStyle") ?? "") ?? .columns
     }
 
     func level(for utilization: Double) -> UsageLevel {
