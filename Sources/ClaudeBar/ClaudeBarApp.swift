@@ -15,6 +15,12 @@ struct ClaudeBarApp: App {
                 .task { state.start() }
         }
         .menuBarExtraStyle(.window)
+
+        Window("ClaudeBar Settings", id: "settings") {
+            SettingsView(state: state)
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 }
 

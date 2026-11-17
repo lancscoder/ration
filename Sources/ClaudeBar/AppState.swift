@@ -18,6 +18,9 @@ final class AppState {
     /// Ticks every 15 s so countdowns stay current.
     private(set) var now = Date()
 
+    // Tokens
+    var showCacheReads = false
+
     @ObservationIgnored private let usageService: UsageService
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var clockTimer: Timer?
@@ -79,6 +82,8 @@ final class AppState {
             }
         }
     }
+
+    func toggleCacheReads() { showCacheReads.toggle() }
 
     func pollIntervalChanged() {
         Task { await usageService.setPollInterval(TimeInterval(prefs.pollInterval)) }
