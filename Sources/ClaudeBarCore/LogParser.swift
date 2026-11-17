@@ -140,6 +140,6 @@ public enum UsageDeduplicator {
                 }
             }
         }
-        return byKey.values.sorted { $0.time < $1.time }
+        return byKey.values.sorted { $0.time != $1.time ? $0.time < $1.time : $0.key < $1.key }
     }
 }
