@@ -45,6 +45,7 @@ final class AppState {
     /// so a terminal left open for days doesn't keep it blue forever.
     static let waitingDotWindow: TimeInterval = 30 * 60
 
+    @ObservationIgnored let notifier = Notifier()
     @ObservationIgnored private let usageService: UsageService
     @ObservationIgnored private let logStore: LogStore
     @ObservationIgnored private var pollTask: Task<Void, Never>?
@@ -66,6 +67,7 @@ final class AppState {
     func start() {
         guard !started else { return }
         started = true
+        if prefs.notifyUsage || prefs.notifyWaiting { notifier.requestAuthorization() }
         clockTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.now = Date() }
         }
@@ -115,8 +117,18 @@ final class AppState {
     }
 
     private func applyUsage(_ snapshot: UsageSnapshot) {
+        let isNewData = snapshot.fetchedAt != usage.fetchedAt
         usage = snapshot
         now = Date()
+        if isNewData, snapshot.status == .ok { checkUsageThresholds() }
+    }
+
+    private func checkUsageThresholds() {
+        guard prefs.notifyUsage, let response = usage.response else { return }
+        let limits = [response.session, response.weekly].compactMap { $0 }
+        let result = ThresholdTracker.evaluate(limits: limits, thresholds: prefs.parsedNotifyThresholds, fired: notifier.firedKeys)
+        notifier.firedKeys = result.fired
+        for alert in result.alerts { notifier.sendUsageAlert(alert, now: now) }
     }
 
     /// Manual refresh (`r` / button). Respects rate-limit backoff and a 60 s
@@ -138,13 +150,13 @@ final class AppState {
 
     private func startLogMonitoring() {
         refreshLogs()
-        Task {
+        Task { [weak self, logStore] in
             let paths = await logStore.watchedPaths
             let watcher = DirectoryWatcher(paths: paths, latency: 2) { [weak self] in
                 Task { @MainActor in self?.refreshLogs() }
             }
             watcher.start()
-            self.logWatcher = watcher
+            self?.logWatcher = watcher
         }
         // Fallback in case FSEvents misses something.
         logTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
@@ -203,8 +215,12 @@ final class AppState {
         }
     }
 
-    /// Hook for notifications (M5).
-    private func sessionsDidChange(from old: [SessionInfo], to new: [SessionInfo]) {}
+    private func sessionsDidChange(from old: [SessionInfo], to new: [SessionInfo]) {
+        guard prefs.notifyWaiting, !old.isEmpty else { return }
+        for session in ThresholdTracker.newlyWaiting(old: old, new: new) {
+            notifier.sendWaiting(session)
+        }
+    }
 
     func resume(_ session: SessionInfo) {
         do {
@@ -251,6 +267,8 @@ final class AppState {
     }
 
     func toggleCacheReads() { showCacheReads.toggle() }
+
+    func historyDaysChanged() { recomputeTokens() }
 
     private func recomputeTokens() {
         Task { await recomputeTokensNow() }

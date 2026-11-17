@@ -49,6 +49,11 @@ final class Preferences {
     var hideCacheReadsByDefault: Bool { didSet { defaults.set(hideCacheReadsByDefault, forKey: "hideCacheReadsByDefault") } }
     var terminal: TerminalChoice { didSet { defaults.set(terminal.rawValue, forKey: "terminal") } }
     var customTerminalCommand: String { didSet { defaults.set(customTerminalCommand, forKey: "customTerminalCommand") } }
+    var notifyUsage: Bool { didSet { defaults.set(notifyUsage, forKey: "notifyUsage") } }
+    var notifyThresholds: String { didSet { defaults.set(notifyThresholds, forKey: "notifyThresholds") } }
+    var notifyWaiting: Bool { didSet { defaults.set(notifyWaiting, forKey: "notifyWaiting") } }
+
+    var parsedNotifyThresholds: [Int] { ThresholdTracker.parseThresholds(notifyThresholds) }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -61,6 +66,9 @@ final class Preferences {
             "hideCacheReadsByDefault": true,
             "terminal": TerminalChoice.terminal.rawValue,
             "customTerminalCommand": "open -a Terminal {script}",
+            "notifyUsage": true,
+            "notifyThresholds": "75, 90",
+            "notifyWaiting": false,
         ])
         pollInterval = max(Int(BackoffPolicy.minimumPollInterval), defaults.integer(forKey: "pollInterval"))
         warningThreshold = defaults.integer(forKey: "warningThreshold")
@@ -70,6 +78,9 @@ final class Preferences {
         hideCacheReadsByDefault = defaults.bool(forKey: "hideCacheReadsByDefault")
         terminal = TerminalChoice(rawValue: defaults.string(forKey: "terminal") ?? "") ?? .terminal
         customTerminalCommand = defaults.string(forKey: "customTerminalCommand") ?? ""
+        notifyUsage = defaults.bool(forKey: "notifyUsage")
+        notifyThresholds = defaults.string(forKey: "notifyThresholds") ?? "75, 90"
+        notifyWaiting = defaults.bool(forKey: "notifyWaiting")
     }
 
     func level(for utilization: Double) -> UsageLevel {
