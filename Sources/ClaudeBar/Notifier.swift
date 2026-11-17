@@ -9,18 +9,19 @@ import UserNotifications
 final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     nonisolated private static let log = Logger(subsystem: Log.subsystem, category: "notify")
     private let defaults: UserDefaults
-    private let firedKey = "firedThresholdKeys"
+    private let firedStore: FiredThresholdStore
     private var center: UNUserNotificationCenter { UNUserNotificationCenter.current() }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.firedStore = FiredThresholdStore(defaults: defaults)
         super.init()
         center.delegate = self
     }
 
     var firedKeys: Set<String> {
-        get { Set(defaults.stringArray(forKey: firedKey) ?? []) }
-        set { defaults.set(Array(newValue).sorted().suffix(64), forKey: firedKey) }
+        get { firedStore.keys }
+        set { firedStore.keys = newValue }
     }
 
     func requestAuthorization() {

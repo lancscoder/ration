@@ -44,3 +44,27 @@ public enum ThresholdTracker {
         return new.filter { $0.state == .waiting && previous[$0.sessionId] == .busy }
     }
 }
+
+/// Persists which threshold keys have already fired.
+///
+/// Values written to UserDefaults must be real property-list types. An earlier
+/// version stored `sorted().suffix(64)` — an `ArraySlice`, which is boxed into
+/// an opaque object instead — and that corrupted the process and caused
+/// random crashes after each successful usage fetch.
+public struct FiredThresholdStore: @unchecked Sendable {
+    public static let key = "firedThresholdKeys"
+    public static let capacity = 64
+    private let defaults: UserDefaults
+
+    public init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    public var keys: Set<String> {
+        get { Set(defaults.stringArray(forKey: Self.key) ?? []) }
+        nonmutating set {
+            let kept: [String] = Array(newValue.sorted().suffix(Self.capacity))
+            defaults.set(kept, forKey: Self.key)
+        }
+    }
+}

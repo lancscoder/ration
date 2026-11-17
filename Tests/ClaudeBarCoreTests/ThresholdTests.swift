@@ -64,3 +64,23 @@ struct ThresholdTests {
         #expect(ThresholdTracker.newlyWaiting(old: old, new: new).map(\.sessionId) == ["a"])
     }
 }
+
+@Suite("Fired threshold persistence")
+struct FiredThresholdStoreTests {
+    @Test func storesAPlainPropertyListArray() throws {
+        let suite = "claudebar-tests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FiredThresholdStore(defaults: defaults)
+
+        store.keys = Set((0..<100).map { "k\($0)" })
+        // Regression: must be stored as a real [String] (plist), not a boxed ArraySlice.
+        let raw = defaults.object(forKey: FiredThresholdStore.key)
+        #expect(raw is [String])
+        #expect(PropertyListSerialization.propertyList(raw as Any, isValidFor: .binary))
+        #expect(store.keys.count == FiredThresholdStore.capacity)
+
+        store.keys = ["a@1@75"]
+        #expect(store.keys == ["a@1@75"])
+    }
+}

@@ -28,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Belt and braces: Info.plist sets LSUIElement, but `swift run` has no bundle.
         NSApp.setActivationPolicy(.accessory)
-        MainActor.assumeIsolated { Snapshot.runIfRequested() }
+        MainActor.assumeIsolated {
+            Snapshot.runIfRequested()
+            Stress.runIfRequested()
+        }
     }
 }
