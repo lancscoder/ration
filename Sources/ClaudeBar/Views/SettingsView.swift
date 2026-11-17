@@ -13,9 +13,18 @@ struct SettingsView: View {
         @Bindable var prefs = state.prefs
         Form {
             Section("Menu bar") {
-                Picker("Show", selection: $prefs.labelFormat) {
+                LabeledContent("Preview") {
+                    Image(nsImage: MenuBarLabelRenderer.image(for: state.menuBarModel))
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.06)))
+                }
+                Picker("Limit", selection: $prefs.labelFormat) {
                     ForEach(LabelFormat.allCases) { Text($0.title).tag($0) }
                 }
+                Toggle("Percent used", isOn: $prefs.labelShowPercent)
+                Toggle("Time until reset", isOn: $prefs.labelShowCountdown)
+                Toggle("Reset time", isOn: $prefs.labelShowResetTime)
+                Toggle("Session status dot (green working, blue waiting)", isOn: $prefs.labelShowStatus)
                 Stepper(value: $prefs.warningThreshold, in: 1...99) {
                     LabeledContent("Amber from", value: "\(prefs.warningThreshold)%")
                 }

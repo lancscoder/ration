@@ -67,6 +67,7 @@ final class AppState {
     func start() {
         guard !started else { return }
         started = true
+        Stress.appState = self
         if prefs.notifyUsage || prefs.notifyWaiting { notifier.requestAuthorization() }
         clockTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.now = Date() }

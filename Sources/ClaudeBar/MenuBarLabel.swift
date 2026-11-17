@@ -22,10 +22,10 @@ enum MenuBarLabelRenderer {
             .withSymbolConfiguration(symbolConfig)
         let symbolSize = symbol?.size ?? NSSize(width: 10, height: 14)
 
-        let textSize = (model.text as NSString).size(withAttributes: [.font: font])
+        let textSize = model.text.isEmpty ? .zero : (model.text as NSString).size(withAttributes: [.font: font])
         let dotDiameter: CGFloat = 6
         let gap: CGFloat = 3
-        var width = ceil(symbolSize.width + gap + textSize.width)
+        var width = ceil(symbolSize.width + (model.text.isEmpty ? 0 : gap + textSize.width))
         if model.dot != nil { width += gap + 1 + dotDiameter }
         let height: CGFloat = 18
 
@@ -46,10 +46,14 @@ enum MenuBarLabelRenderer {
                 x += symbolSize.width + gap
             }
 
-            let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: tint]
-            let ty = (rect.height - textSize.height) / 2
-            (model.text as NSString).draw(at: NSPoint(x: x, y: ty), withAttributes: attrs)
-            x += textSize.width + gap + 1
+            if !model.text.isEmpty {
+                let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: tint]
+                let ty = (rect.height - textSize.height) / 2
+                (model.text as NSString).draw(at: NSPoint(x: x, y: ty), withAttributes: attrs)
+                x += textSize.width + gap + 1
+            } else {
+                x += 1
+            }
 
             if let dot = model.dot {
                 let color: NSColor = dot == .busy ? .systemGreen : .systemBlue
@@ -74,40 +78,25 @@ struct MenuBarLabelView: View {
 
 extension AppState {
     var menuBarModel: MenuBarLabelModel {
+        let dot = prefs.labelShowStatus ? sessionDot : nil
         guard let response = usage.response else {
             let text: String
             switch usage.status {
             case .loginStale, .noCredentials: text = "login"
-            default: text = "–"
+            default: text = prefs.labelOptions.showsAnyText ? "–" : ""
             }
-            return MenuBarLabelModel(text: text, level: .normal, dimmed: true, dot: sessionDot)
+            return MenuBarLabelModel(text: text, level: .normal, dimmed: true, dot: dot)
         }
         let session = response.session
         let weekly = response.weekly
-
-        func part(_ limit: LimitDisplay?) -> String {
-            guard let limit else { return "–" }
-            var s = Fmt.percent(limit.utilization)
-            if let reset = limit.resetsAt, reset > now {
-                s += " · " + Fmt.duration(reset.timeIntervalSince(now))
-            }
-            return s
-        }
-
-        let text: String
+        let text = MenuBarText.compose(session: session, weekly: weekly, options: prefs.labelOptions, now: now)
         let levelSource: Double
         switch prefs.labelFormat {
-        case .session:
-            text = part(session)
-            levelSource = session?.utilization ?? 0
-        case .weekly:
-            text = "W " + part(weekly)
-            levelSource = weekly?.utilization ?? 0
-        case .both:
-            text = "\(session.map { Fmt.percent($0.utilization) } ?? "–") · W \(weekly.map { Fmt.percent($0.utilization) } ?? "–")"
-            levelSource = max(session?.utilization ?? 0, weekly?.utilization ?? 0)
+        case .session: levelSource = session?.utilization ?? 0
+        case .weekly: levelSource = weekly?.utilization ?? 0
+        case .both: levelSource = max(session?.utilization ?? 0, weekly?.utilization ?? 0)
         }
-        return MenuBarLabelModel(text: text, level: prefs.level(for: levelSource), dimmed: isUsageStale, dot: sessionDot)
+        return MenuBarLabelModel(text: text, level: prefs.level(for: levelSource), dimmed: isUsageStale, dot: dot)
     }
 
     var sessionDot: MenuBarLabelModel.Dot? {

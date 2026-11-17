@@ -16,6 +16,7 @@ enum Stress {
         let seconds = (i + 1 < args.count ? Double(args[i + 1]) : nil) ?? 60
         let mode = ProcessInfo.processInfo.environment["STRESS_MODE"] ?? "all"
         print("stress mode: \(mode)")
+        if mode == "resize" { runResizeCheck(); return }
         let start = Date()
         var n = 0
         var toggles = 0
@@ -30,7 +31,7 @@ enum Stress {
                 if mode == "idle" { return }
                 // Open/close the panel every ~0.6 s.
                 if n % 200 == 1 {
-                    statusButton()?.performClick(nil)
+                    clickStatusItem()
                     toggles += 1
                     return
                 }
@@ -48,6 +49,51 @@ enum Stress {
                                                    context: nil, eventNumber: n, trackingNumber: 0, userData: nil)
                     if let e { n % 2 == 0 ? hostingView.mouseEntered(with: e) : hostingView.mouseExited(with: e) }
                 }
+            }
+        }
+    }
+
+    /// Hosts the panel in a borderless panel window (MenuBarExtra can't be opened
+    /// programmatically), collapses every section, and reports the window height.
+    static var testWindow: NSPanel?
+    static func runResizeCheck() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard let state = appState else { print("resize: no state"); exit(1) }
+            let prefs = state.prefs
+            let host = NSHostingView(rootView: PanelView(state: state))
+            host.sizingOptions = [] // only PanelWindowBridge may resize the window
+            let panel = NSPanel(contentRect: NSRect(x: 300, y: 200, width: 400, height: 760), styleMask: [.borderless, .nonactivatingPanel],
+                                backing: .buffered, defer: false)
+            panel.contentView = host
+            panel.orderFrontRegardless()
+            testWindow = panel
+            let saved = prefs.collapsedSections
+            prefs.collapsedSections = []
+            try? await Task.sleep(for: .seconds(2))
+            let expanded = panel.frame
+            prefs.collapsedSections = Set(PanelSection.allCases.map(\.rawValue))
+            try? await Task.sleep(for: .seconds(1))
+            let collapsed = panel.frame
+            prefs.collapsedSections = []
+            try? await Task.sleep(for: .seconds(1))
+            let reopened = panel.frame
+            prefs.collapsedSections = saved
+            print("resize: expanded h=\(Int(expanded.height)) top=\(Int(expanded.maxY)) | collapsed h=\(Int(collapsed.height)) top=\(Int(collapsed.maxY)) | expanded again h=\(Int(reopened.height)) top=\(Int(reopened.maxY))")
+            exit(0)
+        }
+    }
+
+    static var appState: AppState?
+
+    /// MenuBarExtra ignores performClick; deliver a real mouse down/up to the status bar window.
+    static func clickStatusItem() {
+        guard let button = statusButton(), let window = button.window else { return }
+        let p = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            if let e = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                          windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                window.sendEvent(e)
             }
         }
     }

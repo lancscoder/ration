@@ -7,9 +7,9 @@ enum LabelFormat: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .session: return "5-hour % and reset"
-        case .weekly: return "Weekly % and reset"
-        case .both: return "5-hour % and weekly %"
+        case .session: return "5-hour session"
+        case .weekly: return "Weekly"
+        case .both: return "Both"
         }
     }
 }
@@ -73,6 +73,15 @@ final class Preferences {
     var warningThreshold: Int { didSet { defaults.set(warningThreshold, forKey: "warningThreshold") } }
     var criticalThreshold: Int { didSet { defaults.set(criticalThreshold, forKey: "criticalThreshold") } }
     var labelFormat: LabelFormat { didSet { defaults.set(labelFormat.rawValue, forKey: "labelFormat") } }
+    var labelShowPercent: Bool { didSet { defaults.set(labelShowPercent, forKey: "labelShowPercent") } }
+    var labelShowCountdown: Bool { didSet { defaults.set(labelShowCountdown, forKey: "labelShowCountdown") } }
+    var labelShowResetTime: Bool { didSet { defaults.set(labelShowResetTime, forKey: "labelShowResetTime") } }
+    var labelShowStatus: Bool { didSet { defaults.set(labelShowStatus, forKey: "labelShowStatus") } }
+
+    var labelOptions: MenuBarLabelOptions {
+        MenuBarLabelOptions(limit: MenuBarLabelOptions.Limit(rawValue: labelFormat.rawValue) ?? .session,
+                            showPercent: labelShowPercent, showCountdown: labelShowCountdown, showResetTime: labelShowResetTime)
+    }
     var historyDays: Int { didSet { defaults.set(historyDays, forKey: "historyDays") } }
     var hideCacheReadsByDefault: Bool { didSet { defaults.set(hideCacheReadsByDefault, forKey: "hideCacheReadsByDefault") } }
     var terminal: TerminalChoice { didSet { defaults.set(terminal.rawValue, forKey: "terminal") } }
@@ -104,6 +113,10 @@ final class Preferences {
             "criticalThreshold": 85,
             "labelFormat": LabelFormat.session.rawValue,
             "historyDays": 90,
+            "labelShowPercent": true,
+            "labelShowCountdown": true,
+            "labelShowResetTime": false,
+            "labelShowStatus": true,
             "hideCacheReadsByDefault": true,
             "terminal": TerminalChoice.terminal.rawValue,
             "customTerminalCommand": "open -a Terminal {script}",
@@ -117,6 +130,10 @@ final class Preferences {
         criticalThreshold = defaults.integer(forKey: "criticalThreshold")
         labelFormat = LabelFormat(rawValue: defaults.string(forKey: "labelFormat") ?? "") ?? .session
         historyDays = max(1, defaults.integer(forKey: "historyDays"))
+        labelShowPercent = defaults.bool(forKey: "labelShowPercent")
+        labelShowCountdown = defaults.bool(forKey: "labelShowCountdown")
+        labelShowResetTime = defaults.bool(forKey: "labelShowResetTime")
+        labelShowStatus = defaults.bool(forKey: "labelShowStatus")
         hideCacheReadsByDefault = defaults.bool(forKey: "hideCacheReadsByDefault")
         terminal = TerminalChoice(rawValue: defaults.string(forKey: "terminal") ?? "") ?? .terminal
         customTerminalCommand = defaults.string(forKey: "customTerminalCommand") ?? ""

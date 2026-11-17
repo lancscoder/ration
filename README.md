@@ -6,7 +6,7 @@ A native macOS menu bar app that shows your Claude plan usage (5-hour and weekly
 ⚡ 29% · 1h12m ●
 ```
 
-- **Menu bar label:** 5-hour utilisation and time to reset (or weekly, or both). It turns amber at 60% and red at 85% (both configurable). The dot is green while a Claude Code session is working and blue when one has just finished and is waiting for you.
+- **Menu bar label:** choose the 5-hour limit, the weekly limit or both, then switch each part on or off in Settings: percent used, time until reset, reset time (e.g. `19:10`) and the session status dot (green while a Claude Code session is working, blue when one has just finished and is waiting for you). With all three text parts off, only the icon shows. The label turns amber at 60% and red at 85% (both configurable).
 - **Limits:** progress bars for the 5-hour session, the weekly limit and any model-specific weekly limits. Each shows a countdown and the wall-clock reset time. Extra-usage spend and limit, plus the weekly per-product breakdown, appear underneath.
 - **Burn rate:** %/hour over the last hour of the current 5-hour window, a forecast ("limit in ~2h10m" or "won't hit limit before reset"), and a sparkline of the window.
 - **Tokens:** Today (hourly) / 7 days / 14 days / All, as stacked columns or a day list (one row per day, newest first, as in rodrigondec's plugin), with a per-model totals table (input, output, cache write, cache read). Cache reads are hidden by default; press `c` to toggle them.
@@ -92,7 +92,11 @@ Logging goes through `os.Logger` with subsystem `local.claudebar.ClaudeBar`:
 log stream --predicate 'subsystem == "local.claudebar.ClaudeBar"' --info
 ```
 
-For UI checks without screen recording, `ClaudeBar.app/Contents/MacOS/ClaudeBar --snapshot <dir>` renders the label and panel from cached data to PNGs and exits.
+Debug flags (for checks without screen recording):
+
+- `ClaudeBar.app/Contents/MacOS/ClaudeBar --snapshot <dir>` renders the label and panel from cached data to PNGs, then exits.
+- `--stress <seconds>` floods the panel with synthetic mouse events while the app runs normally. Use `STRESS_MODE=idle` for no events.
+- `STRESS_MODE=resize … --stress 30` collapses every section and prints the panel's window height before and after.
 
 ## Caveats
 

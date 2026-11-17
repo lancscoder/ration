@@ -23,7 +23,7 @@ struct PanelView: View {
             .scrollIndicators(.automatic)
             .frame(width: width, height: min(contentHeight, maxHeight))
             .onPreferenceChange(HeightKey.self) { contentHeight = $0 }
-            .background(KeyboardShortcuts(state: state))
+            .background(PanelWindowBridge(state: state, contentHeight: min(contentHeight, maxHeight)))
         }
     }
 
@@ -62,11 +62,16 @@ private struct HeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
-/// `r` refreshes, `c` toggles cache reads, `Esc` closes the panel.
-/// A local monitor sees only this app's events; it ignores the Settings
-/// window and anything typed into a text field.
-private struct KeyboardShortcuts: NSViewRepresentable {
+/// Bridges to the panel's NSWindow:
+/// - Keyboard: `r` refreshes, `c` toggles cache reads, `Esc` closes the panel.
+///   A local monitor sees only this app's events; it ignores other windows and
+///   anything typed into a text field.
+/// - Size: MenuBarExtra windows grow with their content but never shrink, so
+///   when the content gets shorter (e.g. a section collapses) the window is
+///   resized explicitly, keeping its top edge under the menu bar.
+private struct PanelWindowBridge: NSViewRepresentable {
     let state: AppState
+    let contentHeight: CGFloat
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -74,7 +79,25 @@ private struct KeyboardShortcuts: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: NSView, context: Context) {
+        let height = contentHeight
+        // Defer until SwiftUI has finished this layout pass.
+        DispatchQueue.main.async { [weak nsView] in
+            guard let window = nsView?.window else { return }
+            Self.fit(window, toContentHeight: height)
+        }
+    }
+
+    static func fit(_ window: NSWindow, toContentHeight height: CGFloat) {
+        guard height > 0 else { return }
+        let current = window.contentRect(forFrameRect: window.frame)
+        guard abs(current.height - height) > 0.5 else { return }
+        let target = window.frameRect(forContentRect: NSRect(x: current.minX, y: current.minY, width: current.width, height: height))
+        var frame = window.frame
+        frame.origin.y = frame.maxY - target.height // keep the top edge fixed
+        frame.size.height = target.height
+        window.setFrame(frame, display: true, animate: false)
+    }
 
     static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) { coordinator.remove() }
 
