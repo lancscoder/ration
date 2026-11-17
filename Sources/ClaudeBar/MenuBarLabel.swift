@@ -110,6 +110,11 @@ extension AppState {
         return MenuBarLabelModel(text: text, level: prefs.level(for: levelSource), dimmed: isUsageStale, dot: sessionDot)
     }
 
-    /// Replaced in M4 by the session monitor.
-    var sessionDot: MenuBarLabelModel.Dot? { nil }
+    var sessionDot: MenuBarLabelModel.Dot? {
+        switch sessionDotState {
+        case .busy: return .busy
+        case .waiting: return .waiting
+        default: return nil
+        }
+    }
 }

@@ -34,6 +34,17 @@ final class AppState {
     private(set) var logsLoaded = false
     @ObservationIgnored private(set) var logSnapshot = LogSnapshot.empty
 
+    // Sessions
+    private(set) var sessions: [SessionInfo] = []
+    /// Shown briefly in the sessions card when resume/kill fails.
+    var sessionActionError: String?
+    @ObservationIgnored private let sessionMonitor = SessionMonitor()
+    @ObservationIgnored private var sessionTimer: Timer?
+    @ObservationIgnored private var sessionScanInFlight = false
+    /// A "waiting" session only lights the menu bar dot this long after its last activity,
+    /// so a terminal left open for days doesn't keep it blue forever.
+    static let waitingDotWindow: TimeInterval = 30 * 60
+
     @ObservationIgnored private let usageService: UsageService
     @ObservationIgnored private let logStore: LogStore
     @ObservationIgnored private var pollTask: Task<Void, Never>?
@@ -64,6 +75,9 @@ final class AppState {
             startPolling(after: initialDelay)
         }
         startLogMonitoring()
+        sessionTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refreshSessions() }
+        }
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [logStore] _ in
             // Best effort: persist the parse cache so the next launch is incremental.
             let sem = DispatchSemaphore(value: 0)
@@ -79,6 +93,7 @@ final class AppState {
         let logs = await logStore.refresh()
         applyLogs(logs)
         await recomputeTokensNow()
+        await scanSessions()
         now = Date()
     }
 
@@ -148,6 +163,7 @@ final class AppState {
             let snapshot = await logStore.refresh()
             applyLogs(snapshot)
             await recomputeTokensNow()
+            refreshSessions()
             logRefreshInFlight = false
             if logRefreshPending {
                 logRefreshPending = false
@@ -164,8 +180,75 @@ final class AppState {
         if changed { logsDidChange() }
     }
 
-    /// Hook for the session monitor (M4).
     private func logsDidChange() {}
+
+    // MARK: Sessions
+
+    func refreshSessions() {
+        guard !sessionScanInFlight else { return }
+        sessionScanInFlight = true
+        Task {
+            await scanSessions()
+            sessionScanInFlight = false
+        }
+    }
+
+    private func scanSessions() async {
+        let logs = logSnapshot
+        let found = await sessionMonitor.scan(sessionFiles: logs.sessionFiles, sessionCwds: logs.sessionCwds, summaries: sessionTokens)
+        let previous = sessions
+        if found != previous {
+            sessions = found
+            sessionsDidChange(from: previous, to: found)
+        }
+    }
+
+    /// Hook for notifications (M5).
+    private func sessionsDidChange(from old: [SessionInfo], to new: [SessionInfo]) {}
+
+    func resume(_ session: SessionInfo) {
+        do {
+            try TerminalLauncher.resume(sessionId: session.sessionId, cwd: session.cwd,
+                                        choice: prefs.terminal, customTemplate: prefs.customTerminalCommand)
+            sessionActionError = nil
+        } catch {
+            showSessionError(error.localizedDescription)
+        }
+    }
+
+    func kill(_ session: SessionInfo) {
+        guard let pid = session.pid else { return }
+        do {
+            try ProcessControl.terminate(pid: pid, procStart: session.procStart)
+            sessionActionError = nil
+        } catch ProcessControl.TerminateError.notRunning {
+            sessionActionError = nil
+        } catch ProcessControl.TerminateError.pidReused {
+            showSessionError("That process is no longer the Claude session; not killed.")
+        } catch {
+            showSessionError("Couldn't stop the session (\(error)).")
+        }
+        Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            refreshSessions()
+        }
+    }
+
+    private func showSessionError(_ message: String) {
+        sessionActionError = message
+        Task {
+            try? await Task.sleep(for: .seconds(6))
+            if sessionActionError == message { sessionActionError = nil }
+        }
+    }
+
+    var sessionDotState: SessionState? {
+        if sessions.contains(where: { $0.state == .busy }) { return .busy }
+        let recentWaiting = sessions.contains {
+            $0.state == .waiting && now.timeIntervalSince($0.lastActivity ?? .distantPast) < Self.waitingDotWindow
+        }
+        return recentWaiting ? .waiting : nil
+    }
 
     func toggleCacheReads() { showCacheReads.toggle() }
 
