@@ -32,6 +32,7 @@ struct PanelView: View {
             header
             LimitsSection(state: state)
             BurnRateSection(state: state)
+            TokensSection(state: state)
             FooterView(state: state)
         }
         .padding(12)

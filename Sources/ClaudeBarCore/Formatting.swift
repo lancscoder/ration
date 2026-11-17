@@ -36,6 +36,8 @@ public enum Fmt {
 
     /// Wall-clock for a reset time: `19:10` today, `Thu 17:00` otherwise.
     public static func resetClock(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        // The endpoint jitters by fractions of a second (19:09:59.9 vs 19:10:00.06).
+        let date = Date(timeIntervalSince1970: (date.timeIntervalSince1970 / 60).rounded() * 60)
         let f = DateFormatter()
         f.locale = Locale.current
         f.calendar = calendar
