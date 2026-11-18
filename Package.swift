@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "ClaudeBar", targets: ["ClaudeBar"]),
+        .executable(name: "claudebar-hook", targets: ["claudebar-hook"]),
         .library(name: "ClaudeBarCore", targets: ["ClaudeBarCore"]),
     ],
     targets: [
@@ -14,6 +15,11 @@ let package = Package(
         // Menu bar app (SwiftUI).
         .executableTarget(
             name: "ClaudeBar",
+            dependencies: ["ClaudeBarCore"]
+        ),
+        // Tiny helper Claude Code hooks call (optional "hooks mode").
+        .executableTarget(
+            name: "claudebar-hook",
             dependencies: ["ClaudeBarCore"]
         ),
         .testTarget(

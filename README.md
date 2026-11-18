@@ -8,12 +8,14 @@ A native macOS menu bar app that shows your Claude plan usage (5-hour and weekly
 
 - **Menu bar label:** choose the 5-hour limit, the weekly limit or both, then switch each part on or off in Settings: percent used, time until reset, reset time (e.g. `19:10`) and the session status dot (green while a Claude Code session is working, blue when one has just finished and is waiting for you). With all three text parts off, only the icon shows. The label turns amber at 60% and red at 85% (both configurable).
 - **Limits:** progress bars for the 5-hour session, the weekly limit and any model-specific weekly limits. Each shows a countdown and the wall-clock reset time. Extra-usage spend and limit, plus the weekly per-product breakdown, appear underneath.
-- **Burn rate:** %/hour over the last hour of the current 5-hour window, a forecast ("limit in ~2h10m" or "won't hit limit before reset"), and a sparkline of the window.
-- **Tokens:** Today (hourly) / 7 days / 14 days / All, as stacked columns or a day list (one row per day, newest first, as in rodrigondec's plugin), with a per-model totals table (input, output, cache write, cache read). Cache reads are hidden by default; press `c` to toggle them.
-- **Sessions:** running sessions (with **Stop**, which sends SIGTERM after you confirm) and sessions that ended recently (last 7 days by default, configurable; with **Resume**, which opens your terminal running `claude --resume <id>`), showing project, model, state, last activity and tokens.
-- **Notifications:** sent when usage crosses 75% or 90% (configurable), once per window. Optionally also when a session goes from working to waiting.
+- **Burn rate:** %/hour over the last hour of the current 5-hour window, a forecast ("limit in ~2h10m" or "won't hit limit before reset"), and a sparkline of the window. Below it, the weekly pace over the last day ("on pace for ~66% by Thu 17:00", or when you'd hit the weekly limit).
+- **Tokens:** Today (hourly) / 7 days / 14 days / All, as stacked columns or a day list (one row per day, newest first, as in rodrigondec's plugin), with a totals table (input, output, cache write, cache read) by model or by project folder. Cache reads are hidden by default; press `c` to toggle them.
+- **Sessions:** running sessions (with **Stop**, which sends SIGTERM after you confirm) and sessions that ended recently (last 7 days by default, configurable; with **Resume**, which opens your terminal running `claude --resume <id>`), showing project, model, state, last activity and tokens. Each row's **…** menu (or right-click) can show the folder in Finder or copy its path, the resume command or the session ID.
+- **Notifications:** sent when usage crosses 75% or 90% (configurable), once per window, and at the moment a limit resets if you'd used 90% or more of it. Optionally also when a session goes from working to waiting (or needs permission, with hooks).
 - **Panel:** **Open Claude** launches the Claude desktop app, or claude.ai if it isn't installed. Click a section title to collapse or expand it; ClaudeBar remembers your choice. Settings → Panel sections shows or hides each section. Hovering a footer button shows its name.
-- **Keyboard (panel open):** `r` refreshes, `c` toggles cache reads, `Esc` closes.
+- **Keyboard:** set a global shortcut in Settings → Menu bar to open the panel from anywhere. With the panel open, `r` refreshes, `c` toggles cache reads, `Esc` closes.
+- **Sleep:** after the Mac wakes, local data refreshes immediately and usage within a few seconds (still never more often than every 5 minutes).
+- **VoiceOver:** the menu bar item, limits, charts, token rows and sessions all have spoken labels.
 
 Inspired by [rodrigondec/omarchy-claude-tokens](https://github.com/rodrigondec/omarchy-claude-tokens), [oguzkarcan/claude-usage](https://github.com/oguzkarcan/claude-usage), [mryll/claudebar](https://github.com/mryll/claudebar) and [ai-usagebar](https://github.com/akitaonrails/ai-usagebar).
 
@@ -65,7 +67,8 @@ Claude Code keeps its OAuth login in your login Keychain under the service `Clau
 ### 3. Session status
 
 - **Main source:** Claude Code writes `~/.claude/sessions/<pid>.json` for every running process, with `sessionId`, `cwd`, `status` (`busy`/`idle`) and `procStart`. ClaudeBar checks that each PID is alive and that its start time matches `procStart`, so a recycled PID is never shown or killed.
-- **Fallback:** if no status is reported, a transcript heuristic decides. A write in the last ~10 s, a pending `tool_use` or an unfinished turn means busy; a finished assistant turn means waiting. The logic lives in `SessionStateHeuristic` and is unit tested. A future hooks mode (`UserPromptSubmit`/`Stop`/`Notification` writing a state file) can feed the same `reportedStatus` input.
+- **Fallback:** if no status is reported, a transcript heuristic decides. A write in the last ~10 s, a pending `tool_use` or an unfinished turn means busy; a finished assistant turn means waiting. The logic lives in `SessionStateHeuristic` and is unit tested.
+- **Hooks mode (optional):** Settings → Sessions → *Exact status via Claude Code hooks* adds entries to `~/.claude/settings.json` (backed up to `settings.json.claudebar-backup`; other hooks and settings are kept). `UserPromptSubmit` and `PostToolUse` report busy, `PermissionRequest` and `Notification` (`permission_prompt`) report *needs permission*, `Notification` (`idle_prompt`) and `Stop` report waiting, and `SessionEnd` clears the state. Each runs the bundled `Contents/Helpers/claudebar-hook`, which reads only `session_id` and `hook_event_name` from the hook input and writes `~/Library/Application Support/local.claudebar.ClaudeBar/hook-state/<session>.json`. It always exits 0, and the command is guarded so a moved or deleted app never breaks Claude Code. The newer of the hook state and Claude Code's own status wins; *needs permission* holds until Claude Code reports busy again. Remove them from the same place.
 - **Resume:** terminals are detected automatically: a known list (Terminal, iTerm2, Ghostty, cmux, Warp, WezTerm, kitty, Alacritty, Orca, Hyper, Tabby) plus any other app that registers as a *Shell* for shell scripts. ClaudeBar writes a small `.command` script that `cd`s into the project and runs `claude --resume <id>` in an interactive login shell. Apps that run shell scripts open it directly (no AppleScript, no Automation permission). Ghostty, WezTerm, kitty and Alacritty get it through their command-line options. Apps that can't be told to run a command (Orca, Hyper, Tabby) are opened and the command is copied to the clipboard to paste. A custom command template can use `{script}`, `{cwd}`, `{sessionId}` and `{command}`.
 
 ## Architecture
@@ -97,6 +100,7 @@ Debug flags (for checks without screen recording):
 - `ClaudeBar.app/Contents/MacOS/ClaudeBar --snapshot <dir>` renders the label and panel from cached data to PNGs, then exits.
 - `--stress <seconds>` floods the panel with synthetic mouse events while the app runs normally. Use `STRESS_MODE=idle` for no events.
 - `STRESS_MODE=resize … --stress 30` collapses every section and prints the panel's window height before and after.
+- `STRESS_MODE=quick QUICK_OUT=<png> … --stress 20` registers a test shortcut, opens the shortcut panel, prints where it landed, saves a picture and closes it.
 
 ## Caveats
 

@@ -33,6 +33,7 @@ final class AppState {
     /// Set when the saved shortcut couldn't be registered (usually: another app uses it).
     var hotKeyError: String?
     @ObservationIgnored private let globalHotKey = GlobalHotKey()
+    @ObservationIgnored private var hookWatcher: DirectoryWatcher?
     @ObservationIgnored private lazy var quickPanel = QuickPanel(state: self)
 
     // Tokens
@@ -99,9 +100,23 @@ final class AppState {
             _ = sem.wait(timeout: .now() + 3)
         }
         applyHotKey()
+        startHookStateWatching()
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.didWake() }
         }
+    }
+
+    /// With hooks installed, Claude Code writes session states here; react at once
+    /// instead of waiting for the 3 s session timer.
+    private func startHookStateWatching() {
+        let dir = AppPaths.hookStateDirectory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        HookStateStore.prune(dir)
+        let watcher = DirectoryWatcher(paths: [dir.path], latency: 0.2) { [weak self] in
+            Task { @MainActor in self?.refreshSessions() }
+        }
+        watcher.start()
+        hookWatcher = watcher
     }
 
     /// (Re)registers the global shortcut from preferences.

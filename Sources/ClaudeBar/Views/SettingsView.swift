@@ -131,6 +131,7 @@ struct SettingsView: View {
                     Divider()
                     Text("Custom command").tag(TerminalCatalog.customID)
                 }
+                HooksSettingsRow(state: state)
                 Picker("List ended sessions from", selection: $prefs.endedSessionDays) {
                     ForEach(Preferences.endedSessionDayChoices, id: \.self) { days in
                         Text(days == 1 ? "Last 24 hours" : "Last \(days) days").tag(days)
@@ -392,5 +393,105 @@ struct ShortcutRecorder: View {
         hint = nil
         state.isRecordingShortcut = false
         state.applyHotKey()
+    }
+}
+
+/// Install / remove Claude Code hooks for exact session status.
+struct HooksSettingsRow: View {
+    let state: AppState
+    @State private var status: HookInstaller.Status?
+    @State private var error: String?
+    @State private var confirming: Action?
+
+    enum Action { case install, remove }
+
+    var body: some View {
+        LabeledContent {
+            HStack(spacing: 6) {
+                if confirming == nil {
+                    switch status {
+                    case .installed?:
+                        Button("Remove") { confirming = .remove }
+                    case .outdated?:
+                        Button("Reinstall") { confirming = .install }
+                        Button("Remove") { confirming = .remove }
+                    case .notInstalled?, nil:
+                        Button("Install…") { confirming = .install }
+                            .disabled(HooksSetup.helperPath == nil)
+                    }
+                }
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Exact status via Claude Code hooks")
+                Text(statusText).font(.caption).foregroundStyle(status == .outdated ? .orange : .secondary)
+            }
+        }
+        if let confirming {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(confirmText(confirming))
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Spacer()
+                    Button("Cancel") { self.confirming = nil }
+                    Button(confirming == .install ? "Install Hooks" : "Remove Hooks") { perform(confirming) }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        if let error {
+            Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+        }
+        Color.clear.frame(height: 0).onAppear(perform: refresh)
+    }
+
+    private var statusText: String {
+        switch status {
+        case .installed?: return "Installed. Shows when a session needs your permission; updates instantly."
+        case .outdated?: return "Installed for another copy of ClaudeBar. Reinstall to update."
+        case .notInstalled?: return HooksSetup.helperPath == nil
+            ? "Unavailable in this build (no hook helper)."
+            : "Off. Status is read from Claude Code's session files."
+        case nil: return ""
+        }
+    }
+
+    private func confirmText(_ action: Action) -> String {
+        let file = HooksSetup.settingsURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        switch action {
+        case .install:
+            var text = "Adds \(HookInstaller.entries.count) hook entries to \(file). Your other settings and hooks are kept, and the current file is backed up to settings.json.claudebar-backup. The hooks only record each session's state (never prompts or output). Sessions started after this use them."
+            if !HooksSetup.isInApplicationsFolder {
+                text += " This copy of ClaudeBar isn't in Applications; if you move it, reinstall the hooks."
+            }
+            return text
+        case .remove:
+            return "Removes ClaudeBar's hook entries from \(file) and keeps everything else. A backup is saved to settings.json.claudebar-backup."
+        }
+    }
+
+    private func perform(_ action: Action) {
+        do {
+            switch action {
+            case .install: try HooksSetup.install()
+            case .remove: try HooksSetup.uninstall()
+            }
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
+        }
+        confirming = nil
+        refresh()
+        state.refreshSessions()
+    }
+
+    private func refresh() {
+        do {
+            status = try HooksSetup.status()
+        } catch {
+            status = nil
+            self.error = error.localizedDescription
+        }
     }
 }

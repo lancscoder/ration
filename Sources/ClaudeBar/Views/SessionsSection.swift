@@ -108,10 +108,10 @@ struct SessionRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(session.state.color)
+                .fill(session.needsPermission ? Color.orange : session.state.color)
                 .frame(width: 8, height: 8)
-                .help(session.state.label)
-                .accessibilityLabel(session.state.label)
+                .help(stateLabel)
+                .accessibilityLabel(stateLabel)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
                     Text(session.projectName)
@@ -205,6 +205,10 @@ struct SessionRow: View {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
+    private var stateLabel: String {
+        session.needsPermission ? "Needs your permission" : session.state.label
+    }
+
     private var detail: String {
         var parts: [String] = []
         if let model = session.model { parts.append(ModelName.display(model)) }
@@ -212,7 +216,8 @@ struct SessionRow: View {
         case .busy:
             parts.append(session.state.label)
         case .waiting:
-            parts.append(session.lastActivity.map { "Waiting · \(Fmt.ago($0, now: now))" } ?? session.state.label)
+            let label = session.needsPermission ? "Needs permission" : "Waiting"
+            parts.append(session.lastActivity.map { "\(label) · \(Fmt.ago($0, now: now))" } ?? label)
         case .idle:
             if let last = session.lastActivity { parts.append(Fmt.ago(last, now: now)) }
         }

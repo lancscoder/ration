@@ -41,6 +41,15 @@ public enum AppPaths {
         }
     }
 
+    /// Where `claudebar-hook` records session states:
+    /// `~/Library/Application Support/<bundle-id>/hook-state`. Not in the cache
+    /// folder, so moving the cache doesn't break installed hooks.
+    public static var hookStateDirectory: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+        return base.appendingPathComponent(Log.subsystem, isDirectory: true).appendingPathComponent("hook-state", isDirectory: true)
+    }
+
     /// UserDefaults key holding a user-chosen Claude Code folder (absolute path).
     public static let claudeFolderKey = "claudeFolderOverride"
 

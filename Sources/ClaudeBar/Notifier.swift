@@ -71,9 +71,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func sendWaiting(_ session: SessionInfo) {
-        send(title: "Claude is waiting for you",
-             body: "\(session.projectName)\(session.name.map { " · \($0)" } ?? "") finished its turn.",
-             id: "waiting-\(session.sessionId)")
+        let where_ = "\(session.projectName)\(session.name.map { " · \($0)" } ?? "")"
+        if session.needsPermission {
+            send(title: "Claude needs your permission", body: "\(where_) is waiting for you to approve a step.",
+                 id: "waiting-\(session.sessionId)")
+        } else {
+            send(title: "Claude is waiting for you", body: "\(where_) finished its turn.", id: "waiting-\(session.sessionId)")
+        }
     }
 
     // Show banners even though the menu bar app counts as "active".

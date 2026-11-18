@@ -12,6 +12,8 @@ public struct SessionInfo: Identifiable, Sendable, Equatable {
     public var lastActivity: Date?
     public var model: String?
     public var tokens: TokenCounts?
+    /// Waiting on a permission prompt (known only with hooks installed).
+    public var needsPermission: Bool = false
     public var isLive: Bool { pid != nil }
 
     public var projectName: String {
@@ -42,9 +44,12 @@ public actor SessionMonitor {
     private static let log = Logger(subsystem: Log.subsystem, category: "sessions")
 
     private let sessionDirs: [URL]
+    private let hookStateDir: URL?
 
-    public init(sessionDirs: [URL] = AppPaths.claudeRoots().map { $0.appendingPathComponent("sessions", isDirectory: true) }) {
+    public init(sessionDirs: [URL] = AppPaths.claudeRoots().map { $0.appendingPathComponent("sessions", isDirectory: true) },
+                hookStateDir: URL? = AppPaths.hookStateDirectory) {
         self.sessionDirs = sessionDirs
+        self.hookStateDir = hookStateDir
     }
 
     public var watchedPaths: [String] { sessionDirs.map(\.path).filter { FileManager.default.fileExists(atPath: $0) } }
@@ -59,23 +64,27 @@ public actor SessionMonitor {
                      recentWindow: TimeInterval = 24 * 3600,
                      limit: Int = 12) -> [SessionInfo] {
         var byId: [String: SessionInfo] = [:]
+        let hookStates = hookStateDir.map { HookStateStore.load(from: $0) } ?? [:]
 
         for file in liveFiles() {
             guard ResumeCommand.isSafeSessionId(file.sessionId),
                   ProcessControl.matches(pid: file.pid, procStart: file.procStart) else { continue }
 
+            let merged = HookStateStore.merge(hook: hookStates[file.sessionId], fileStatus: file.status,
+                                              fileUpdated: file.statusUpdatedAt.map { Date(timeIntervalSince1970: $0 > 1e12 ? $0 / 1000 : $0) })
             let transcript = sessionFiles[file.sessionId]
             let mtime = transcript.flatMap { (try? FileManager.default.attributesOfItem(atPath: $0.path))?[.modificationDate] as? Date }
             // The transcript is only needed when Claude Code didn't report a status.
-            let lastEntry = (file.status == nil) ? transcript.flatMap { TranscriptTail.lastEntry(of: $0) } : nil
+            let lastEntry = (merged.status == nil) ? transcript.flatMap { TranscriptTail.lastEntry(of: $0) } : nil
             let state = SessionStateHeuristic.resolve(SessionSignals(
-                processAlive: true, reportedStatus: file.status, lastWrite: mtime, lastEntry: lastEntry, now: now))
+                processAlive: true, reportedStatus: merged.status, lastWrite: mtime, lastEntry: lastEntry, now: now))
 
             let summary = summaries[file.sessionId]
             let activity = [mtime, file.lastUpdate, summary?.lastActivity].compactMap { $0 }.max()
             let info = SessionInfo(sessionId: file.sessionId, pid: file.pid, procStart: file.procStart,
                                    cwd: file.cwd ?? sessionCwds[file.sessionId], name: file.name,
-                                   state: state, lastActivity: activity, model: summary?.lastModel, tokens: summary?.counts)
+                                   state: state, lastActivity: activity, model: summary?.lastModel, tokens: summary?.counts,
+                                   needsPermission: merged.needsPermission && state == .waiting)
             if let existing = byId[file.sessionId], existing.state <= info.state { continue }
             byId[file.sessionId] = info
         }

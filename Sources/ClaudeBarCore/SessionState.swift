@@ -67,14 +67,19 @@ public struct SessionSignals: Sendable, Equatable {
 public enum SessionStateHeuristic {
     public static let recentWriteWindow: TimeInterval = 10
 
+    public static func isBusyStatus(_ status: String?) -> Bool {
+        ["busy", "working", "running", "thinking"].contains(status?.lowercased() ?? "")
+    }
+
+    public static func isWaitingStatus(_ status: String?) -> Bool {
+        ["idle", "waiting", "ready", "waiting_for_input"].contains(status?.lowercased() ?? "")
+    }
+
     public static func resolve(_ s: SessionSignals) -> SessionState {
         guard s.processAlive else { return .idle }
 
-        switch s.reportedStatus?.lowercased() {
-        case "busy", "working", "running", "thinking": return .busy
-        case "idle", "waiting", "ready", "waiting_for_input": return .waiting
-        default: break
-        }
+        if isBusyStatus(s.reportedStatus) { return .busy }
+        if isWaitingStatus(s.reportedStatus) { return .waiting }
 
         if let w = s.lastWrite, s.now.timeIntervalSince(w) < recentWriteWindow {
             return .busy
