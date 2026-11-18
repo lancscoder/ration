@@ -123,7 +123,7 @@ private struct PanelWindowBridge: NSViewRepresentable {
 
         func install(view: NSView, state: AppState) {
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak view] event in
-                guard let window = view?.window, event.window === window else { return event }
+                guard let window = view?.window, event.window === window, !state.isRecordingShortcut else { return event }
                 if window.firstResponder is NSTextView { return event }
                 if event.modifierFlags.intersection([.command, .control, .option]).isEmpty == false { return event }
                 switch event.keyCode {

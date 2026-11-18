@@ -87,6 +87,8 @@ final class Preferences {
     var hiddenSections: Set<String> { didSet { defaults.set(Array(hiddenSections).sorted(), forKey: "hiddenSections") } }
     var collapsedSections: Set<String> { didSet { defaults.set(Array(collapsedSections).sorted(), forKey: "collapsedSections") } }
     var tokenChartStyle: TokenChartStyle { didSet { defaults.set(tokenChartStyle.rawValue, forKey: "tokenChartStyle") } }
+    /// Global shortcut that opens the panel; nil = none.
+    var hotKey: HotKeyShortcut? { didSet { defaults.set(hotKey?.encoded(), forKey: "hotKey") } }
     var tokenTableGrouping: TokenTableGrouping { didSet { defaults.set(tokenTableGrouping.rawValue, forKey: "tokenTableGrouping") } }
 
     func isVisible(_ section: PanelSection) -> Bool { !hiddenSections.contains(section.rawValue) }
@@ -142,6 +144,7 @@ final class Preferences {
         hiddenSections = Set(defaults.stringArray(forKey: "hiddenSections") ?? [])
         collapsedSections = Set(defaults.stringArray(forKey: "collapsedSections") ?? [])
         tokenChartStyle = TokenChartStyle(rawValue: defaults.string(forKey: "tokenChartStyle") ?? "") ?? .columns
+        hotKey = HotKeyShortcut.decode(defaults.string(forKey: "hotKey"))
         tokenTableGrouping = TokenTableGrouping(rawValue: defaults.string(forKey: "tokenTableGrouping") ?? "") ?? .model
     }
 

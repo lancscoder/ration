@@ -17,6 +17,7 @@ enum Stress {
         let mode = ProcessInfo.processInfo.environment["STRESS_MODE"] ?? "all"
         print("stress mode: \(mode)")
         if mode == "resize" { runResizeCheck(); return }
+        if mode == "quick" { runQuickPanelCheck(); return }
         let start = Date()
         var n = 0
         var toggles = 0
@@ -87,6 +88,30 @@ enum Stress {
     static var appState: AppState?
 
     /// MenuBarExtra ignores performClick; deliver a real mouse down/up to the status bar window.
+    /// Opens the shortcut panel, reports where it landed, saves a picture, closes it.
+    static func runQuickPanelCheck() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.5))
+            guard let state = appState else { print("quick: no state"); exit(1) }
+            let ok = GlobalHotKey().register(HotKeyShortcut(keyCode: 8, modifiers: HotKeyShortcut.control | HotKeyShortcut.option | HotKeyShortcut.command, key: "C")) {}
+            print("quick: hotkey registered=\(ok)")
+            state.toggleQuickPanel()
+            try? await Task.sleep(for: .seconds(1.5))
+            let panel = NSApp.windows.first { String(describing: type(of: $0)).contains("KeyablePanel") }
+            let status = NSApp.windows.first { String(describing: type(of: $0)).contains("StatusBar") }
+            print("quick: visible=\(panel?.isVisible ?? false) key=\(panel?.isKeyWindow ?? false) frame=\(panel.map { NSStringFromRect($0.frame) } ?? "-") status=\(status.map { NSStringFromRect($0.frame) } ?? "-")")
+            if let view = panel?.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                view.cacheDisplay(in: view.bounds, to: rep)
+                let out = ProcessInfo.processInfo.environment["QUICK_OUT"] ?? "/tmp/quick.png"
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
+            }
+            state.toggleQuickPanel()
+            try? await Task.sleep(for: .seconds(0.5))
+            print("quick: after toggle visible=\(panel?.isVisible ?? false)")
+            exit(0)
+        }
+    }
+
     static func clickStatusItem() {
         guard let button = statusButton(), let window = button.window else { return }
         let p = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)

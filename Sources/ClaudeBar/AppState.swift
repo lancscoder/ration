@@ -28,6 +28,12 @@ final class AppState {
     private(set) var now = Date()
     /// The panel shows Settings in place of the dashboard.
     var showingSettings = false
+    /// Settings is capturing a new global shortcut; panel key handling stands aside.
+    var isRecordingShortcut = false
+    /// Set when the saved shortcut couldn't be registered (usually: another app uses it).
+    var hotKeyError: String?
+    @ObservationIgnored private let globalHotKey = GlobalHotKey()
+    @ObservationIgnored private lazy var quickPanel = QuickPanel(state: self)
 
     // Tokens
     var showCacheReads: Bool
@@ -92,10 +98,23 @@ final class AppState {
             Task.detached { await logStore.flush(); sem.signal() }
             _ = sem.wait(timeout: .now() + 3)
         }
+        applyHotKey()
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.didWake() }
         }
     }
+
+    /// (Re)registers the global shortcut from preferences.
+    func applyHotKey() {
+        globalHotKey.unregister()
+        hotKeyError = nil
+        guard let shortcut = prefs.hotKey, !isRecordingShortcut else { return }
+        let ok = globalHotKey.register(shortcut) { [weak self] in self?.quickPanel.toggle() }
+        if !ok { hotKeyError = "\(shortcut.display) is already used by another app. Pick a different shortcut." }
+    }
+
+    /// Opens or closes the panel from code (the global shortcut).
+    func toggleQuickPanel() { quickPanel.toggle() }
 
     /// After sleep everything on screen is stale: refresh local data at once and the
     /// usage endpoint once the network is back, unless a poll happened recently

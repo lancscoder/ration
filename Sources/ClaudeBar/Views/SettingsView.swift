@@ -61,6 +61,7 @@ struct SettingsView: View {
                 Toggle("Time until reset", isOn: $prefs.labelShowCountdown)
                 Toggle("Reset time", isOn: $prefs.labelShowResetTime)
                 Toggle("Session status dot (green working, blue waiting)", isOn: $prefs.labelShowStatus)
+                ShortcutRecorder(state: state)
                 Stepper(value: $prefs.warningThreshold, in: 1...99) {
                     LabeledContent("Amber from", value: "\(prefs.warningThreshold)%")
                 }
@@ -328,5 +329,68 @@ struct SettingsView: View {
         loginStatus = LaunchAtLogin.status
         let enabled = LaunchAtLogin.isEnabled || loginStatus == .requiresApproval
         if enabled != launchAtLogin { launchAtLogin = enabled }
+    }
+}
+
+/// Records a global shortcut: click, press the keys (⌘, ⌃ or ⌥ required), Esc cancels.
+struct ShortcutRecorder: View {
+    let state: AppState
+    @State private var monitor: Any?
+    @State private var hint: String?
+
+    var body: some View {
+        LabeledContent("Open panel shortcut") {
+            HStack(spacing: 6) {
+                Button {
+                    state.isRecordingShortcut ? stop() : start()
+                } label: {
+                    Text(state.isRecordingShortcut ? "Press keys…" : (state.prefs.hotKey?.display ?? "Record Shortcut"))
+                        .monospaced(state.prefs.hotKey != nil && !state.isRecordingShortcut)
+                        .frame(minWidth: 90)
+                }
+                .help(state.isRecordingShortcut ? "Press the new shortcut, or Esc to cancel" : "Click to record a shortcut")
+                if state.prefs.hotKey != nil, !state.isRecordingShortcut {
+                    Button {
+                        state.prefs.hotKey = nil
+                        state.applyHotKey()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Remove shortcut")
+                    .accessibilityLabel("Remove shortcut")
+                }
+            }
+        }
+        .onDisappear { if state.isRecordingShortcut { stop() } }
+        if let message = hint ?? state.hotKeyError {
+            Text(message).font(.caption).foregroundStyle(hint == nil ? .red : .secondary)
+        }
+    }
+
+    private func start() {
+        hint = "Include ⌘, ⌃ or ⌥. Esc cancels."
+        state.isRecordingShortcut = true
+        state.applyHotKey() // releases the current one so it can be pressed again
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { stop(); return nil } // Esc
+            let shortcut = HotKeyShortcut(keyCode: UInt32(event.keyCode), modifiers: event.modifierFlags.rawValue,
+                                          key: HotKeyShortcut.keyName(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers))
+            guard shortcut.isValid else {
+                hint = "\(shortcut.display.isEmpty ? "That key" : shortcut.display) needs ⌘, ⌃ or ⌥."
+                return nil
+            }
+            state.prefs.hotKey = shortcut
+            stop()
+            return nil
+        }
+    }
+
+    private func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        hint = nil
+        state.isRecordingShortcut = false
+        state.applyHotKey()
     }
 }
