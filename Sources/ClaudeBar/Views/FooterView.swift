@@ -4,7 +4,6 @@ import SwiftUI
 
 struct FooterView: View {
     let state: AppState
-    @Environment(\.openWindow) private var openWindow
     /// Name of the button under the pointer. Shown in place of the "Updated" text,
     /// because standard tooltips are unreliable inside menu bar panels.
     @State private var hovered: String?
@@ -32,8 +31,7 @@ struct FooterView: View {
                     NSWorkspace.shared.open(URL(string: "https://claude.ai/settings/usage")!)
                 }
                 IconButton(systemImage: "gearshape", help: "Settings", hovered: $hovered) {
-                    openWindow(id: "settings")
-                    NSApp.activate(ignoringOtherApps: true)
+                    state.showingSettings = true
                 }
                 IconButton(systemImage: "power", help: "Quit ClaudeBar", hovered: $hovered) { NSApp.terminate(nil) }
             }

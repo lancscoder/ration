@@ -9,21 +9,34 @@ struct PanelView: View {
 
     private let width: CGFloat = 400
     private let maxHeight: CGFloat = 760
+    /// Settings is a scrolling form with no natural height, so it gets a fixed one.
+    private let settingsHeight: CGFloat = 620
 
     var body: some View {
         if snapshotMode {
-            content.frame(width: width)
-        } else {
-            ScrollView(.vertical) {
-                content
-                    .background(GeometryReader { geo in
-                        Color.clear.preference(key: HeightKey.self, value: geo.size.height)
-                    })
+            if state.showingSettings {
+                SettingsView(state: state).frame(width: width, height: settingsHeight)
+            } else {
+                content.frame(width: width)
             }
-            .scrollIndicators(.automatic)
-            .frame(width: width, height: min(contentHeight, maxHeight))
-            .onPreferenceChange(HeightKey.self) { contentHeight = $0 }
-            .background(PanelWindowBridge(state: state, contentHeight: min(contentHeight, maxHeight)))
+        } else {
+            let height = state.showingSettings ? settingsHeight : min(contentHeight, maxHeight)
+            Group {
+                if state.showingSettings {
+                    SettingsView(state: state)
+                } else {
+                    ScrollView(.vertical) {
+                        content
+                            .background(GeometryReader { geo in
+                                Color.clear.preference(key: HeightKey.self, value: geo.size.height)
+                            })
+                    }
+                    .scrollIndicators(.automatic)
+                    .onPreferenceChange(HeightKey.self) { contentHeight = $0 }
+                }
+            }
+            .frame(width: width, height: height)
+            .background(PanelWindowBridge(state: state, contentHeight: height))
         }
     }
 
@@ -63,7 +76,8 @@ private struct HeightKey: PreferenceKey {
 }
 
 /// Bridges to the panel's NSWindow:
-/// - Keyboard: `r` refreshes, `c` toggles cache reads, `Esc` closes the panel.
+/// - Keyboard: `r` refreshes, `c` toggles cache reads, `Esc` closes the panel
+///   (or leaves Settings when that is showing).
 ///   A local monitor sees only this app's events; it ignores other windows and
 ///   anything typed into a text field.
 /// - Size: MenuBarExtra windows grow with their content but never shrink, so
@@ -114,10 +128,15 @@ private struct PanelWindowBridge: NSViewRepresentable {
                 if event.modifierFlags.intersection([.command, .control, .option]).isEmpty == false { return event }
                 switch event.keyCode {
                 case 53: // Esc
-                    window.close()
+                    if state.showingSettings {
+                        state.showingSettings = false
+                    } else {
+                        window.close()
+                    }
                     return nil
                 default: break
                 }
+                if state.showingSettings { return event }
                 switch event.charactersIgnoringModifiers?.lowercased() {
                 case "r":
                     state.refresh()

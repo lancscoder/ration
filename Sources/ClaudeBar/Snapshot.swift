@@ -29,6 +29,20 @@ enum Snapshot {
                     try? rep.representation(using: .png, properties: [:])?.write(to: dir.appendingPathComponent("panel-\(name).png"))
                 }
             }
+            // Forms are AppKit-backed, which ImageRenderer can't draw: use a real offscreen window.
+            state.showingSettings = true
+            let host = NSHostingView(rootView: PanelView(state: state, snapshotMode: true))
+            let window = NSWindow(contentRect: NSRect(x: -3000, y: 0, width: 400, height: 620), styleMask: [.borderless], backing: .buffered, defer: false)
+            window.appearance = NSAppearance(named: .aqua)
+            window.contentView = host
+            window.orderFrontRegardless()
+            try? await Task.sleep(for: .milliseconds(600))
+            host.layoutSubtreeIfNeeded()
+            if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                host.cacheDisplay(in: host.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: dir.appendingPathComponent("settings-light.png"))
+            }
+            window.orderOut(nil)
             print("snapshots written to \(dir.path)")
             exit(0)
         }

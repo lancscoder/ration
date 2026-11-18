@@ -101,7 +101,7 @@ struct ISODateTests {
 @Suite("Backoff and Retry-After")
 struct BackoffTests {
     @Test func clampsPollInterval() {
-        #expect(BackoffPolicy(baseInterval: 30).baseInterval == 180)
+        #expect(BackoffPolicy(baseInterval: 30).baseInterval == 300)
         #expect(BackoffPolicy(baseInterval: 600).baseInterval == 600)
     }
 

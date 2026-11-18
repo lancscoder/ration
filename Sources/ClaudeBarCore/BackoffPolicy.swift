@@ -2,7 +2,7 @@ import Foundation
 
 /// Polling cadence for the rate-limited usage endpoint.
 public struct BackoffPolicy: Sendable, Equatable {
-    public static let minimumPollInterval: TimeInterval = 180
+    public static let minimumPollInterval: TimeInterval = 300
     public static let defaultPollInterval: TimeInterval = 300
 
     public var baseInterval: TimeInterval

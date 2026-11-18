@@ -11,6 +11,38 @@ struct SettingsView: View {
     @State private var cacheError: String?
 
     var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider()
+            form
+        }
+        .onAppear {
+            launchAtLogin = LaunchAtLogin.isEnabled
+            loginStatus = LaunchAtLogin.status
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Button {
+                state.showingSettings = false
+            } label: {
+                Label("Back", systemImage: "chevron.left")
+            }
+            .controlSize(.small)
+            .help("Back to usage (Esc)")
+            Spacer()
+            Text("Settings").font(.headline)
+            Spacer()
+            // Balances the back button so the title stays centred.
+            Label("Back", systemImage: "chevron.left").controlSize(.small).hidden()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private var form: some View {
         @Bindable var prefs = state.prefs
         Form {
             Section("Menu bar") {
@@ -59,16 +91,11 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Section {
+            Section("Plan limits") {
                 Stepper(value: $prefs.pollInterval, in: Int(BackoffPolicy.minimumPollInterval)...3600, step: 60) {
                     LabeledContent("Check usage every", value: Fmt.duration(TimeInterval(prefs.pollInterval)))
                 }
                 .onChange(of: prefs.pollInterval) { state.pollIntervalChanged() }
-            } header: {
-                Text("Plan limits")
-            } footer: {
-                Text("The usage endpoint is heavily rate-limited; ClaudeBar never polls more often than every 3 minutes and backs off on HTTP 429.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Notifications") {
@@ -165,11 +192,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 500, height: 640)
-        .onAppear {
-            launchAtLogin = LaunchAtLogin.isEnabled
-            loginStatus = LaunchAtLogin.status
-        }
     }
 
     private func isInstalled(_ choice: TerminalChoice) -> Bool {

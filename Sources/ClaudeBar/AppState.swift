@@ -25,6 +25,8 @@ final class AppState {
     private(set) var usage = UsageSnapshot()
     /// Ticks every 15 s so countdowns stay current.
     private(set) var now = Date()
+    /// The panel shows Settings in place of the dashboard.
+    var showingSettings = false
 
     // Tokens
     var showCacheReads: Bool
