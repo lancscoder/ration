@@ -1,3 +1,4 @@
+import AppKit
 import ClaudeBarCore
 import SwiftUI
 
@@ -127,6 +128,19 @@ struct SessionRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 4)
+            if confirmingKill != session.sessionId {
+                Menu {
+                    actions
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .opacity(hovering ? 1 : 0.5)
+                .help("More actions")
+                .accessibilityLabel("More actions for \(session.projectName)")
+            }
             if confirmingKill == session.sessionId {
                 Button("Cancel") { confirmingKill = nil }
                     .controlSize(.small)
@@ -160,6 +174,32 @@ struct SessionRow: View {
         .background(RoundedRectangle(cornerRadius: 6).fill(hovering ? Color.primary.opacity(0.06) : .clear))
         .onHover { hovering = $0 }
         .help(session.cwd ?? "")
+        .contextMenu { actions }
+    }
+
+    @ViewBuilder private var actions: some View {
+        if session.isLive {
+            Button("Stop…") { confirmingKill = session.sessionId }
+        } else {
+            Button("Resume") { onResume() }
+        }
+        Divider()
+        if let cwd = session.cwd {
+            Button("Show Folder in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: cwd, isDirectory: true)])
+            }
+            .disabled(!FileManager.default.fileExists(atPath: cwd))
+            Button("Copy Folder Path") { copy(cwd) }
+            if let command = TerminalCatalog.pasteCommand(cwd: cwd, sessionId: session.sessionId) {
+                Button("Copy Resume Command") { copy(command) }
+            }
+        }
+        Button("Copy Session ID") { copy(session.sessionId) }
+    }
+
+    private func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     private var detail: String {
