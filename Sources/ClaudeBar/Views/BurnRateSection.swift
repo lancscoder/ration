@@ -139,6 +139,7 @@ struct SessionSparkline: View {
                 }
             }
             .frame(height: 70)
+            .accessibilityLabel("Session usage over the current 5-hour window")
         }
     }
 }

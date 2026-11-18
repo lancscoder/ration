@@ -123,6 +123,9 @@ struct TokenDayList: View {
                         .frame(width: 48, alignment: .trailing)
                 }
                 .help(tooltip(row))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(label(row.start))
+                .accessibilityValue("\(Fmt.tokens(row.total)) tokens")
             }
         }
     }
@@ -242,6 +245,7 @@ struct TokenChart: View {
         }
         .chartLegend(position: .bottom, spacing: 6)
         .frame(height: 160)
+        .accessibilityLabel("Tokens per \(data.granularity == .hour ? "hour" : "day") by model")
     }
 
     /// Full range on the x axis, including empty days.

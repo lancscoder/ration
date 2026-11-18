@@ -66,6 +66,9 @@ struct LimitRow: View {
                     .monospacedDigit()
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(limit.title)
+        .accessibilityValue("\(Fmt.percent(limit.utilization)) used" + (limit.resetsAt.map { ". \(resetText($0))" } ?? ""))
     }
 
     private func resetText(_ reset: Date) -> String {

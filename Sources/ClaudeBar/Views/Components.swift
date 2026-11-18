@@ -52,7 +52,8 @@ struct UsageBar: View {
         }
         .frame(height: 6)
         .accessibilityElement()
-        .accessibilityValue("\(Int(fraction * 100)) percent")
+        .accessibilityLabel("Usage")
+        .accessibilityValue("\(Int((fraction * 100).rounded())) percent")
     }
 }
 

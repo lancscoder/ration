@@ -81,6 +81,8 @@ struct SessionsSection: View {
             if busy > 0 { Label("\(busy)", systemImage: "circle.fill").foregroundStyle(.green) }
             if waiting > 0 { Label("\(waiting)", systemImage: "circle.fill").foregroundStyle(.blue) }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(busy) working, \(waiting) waiting")
         .labelStyle(DotLabelStyle())
         .font(.caption.monospacedDigit())
     }
@@ -109,6 +111,7 @@ struct SessionRow: View {
                 .fill(session.state.color)
                 .frame(width: 8, height: 8)
                 .help(session.state.label)
+                .accessibilityLabel(session.state.label)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
                     Text(session.projectName)

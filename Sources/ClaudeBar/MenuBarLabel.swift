@@ -73,6 +73,7 @@ struct MenuBarLabelView: View {
 
     var body: some View {
         Image(nsImage: MenuBarLabelRenderer.image(for: state.menuBarModel))
+            .accessibilityLabel(state.menuBarAccessibilityText)
     }
 }
 
@@ -97,6 +98,27 @@ extension AppState {
         case .both: levelSource = max(session?.utilization ?? 0, weekly?.utilization ?? 0)
         }
         return MenuBarLabelModel(text: text, level: prefs.level(for: levelSource), dimmed: isUsageStale, dot: dot)
+    }
+
+    /// Spoken by VoiceOver for the menu bar item; always complete, whatever the label shows.
+    var menuBarAccessibilityText: String {
+        var parts = ["ClaudeBar"]
+        if let response = usage.response {
+            for limit in [response.session, response.weekly].compactMap({ $0 }) {
+                var part = "\(limit.title) \(Fmt.percent(limit.utilization)) used"
+                if let reset = limit.resetsAt, reset > now { part += ", resets in \(Fmt.duration(reset.timeIntervalSince(now)))" }
+                parts.append(part)
+            }
+            if isUsageStale { parts.append("data may be out of date") }
+        } else if let message = statusMessage {
+            parts.append(message)
+        }
+        switch sessionDotState {
+        case .busy: parts.append("Claude is working")
+        case .waiting: parts.append("Claude is waiting for you")
+        default: break
+        }
+        return parts.joined(separator: ". ")
     }
 
     var sessionDot: MenuBarLabelModel.Dot? {
