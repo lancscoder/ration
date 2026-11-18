@@ -214,6 +214,18 @@ struct TokenAggregationTests {
         #expect(opus?.counts.total(includingCacheReads: true) == 162)
     }
 
+    @Test func totalsPerProject() {
+        func rec(_ key: String, _ session: String, _ out: Int) -> UsageRecord {
+            UsageRecord(key: key, time: now.timeIntervalSince1970 - 60, model: "m", sessionId: session, input: 0, output: out, cacheWrite: 0, cacheRead: 0)
+        }
+        let recs = [rec("a", "s1", 10), rec("b", "s1", 5), rec("c", "s2", 30), rec("d", "s3", 1), rec("e", "s4", 2)]
+        let cwds = ["s1": "/Users/me/code/api", "s2": "/Users/me/work/api", "s3": "/Users/me/code/liftlog"] // s4 unknown
+        let totals = TokenAggregator.totalsByProject(recs, sessionCwds: cwds, range: .all, now: now, calendar: calendar("UTC"), historyDays: 90)
+        #expect(totals.map(\.name) == ["work/api", "code/api", "Unknown folder", "liftlog"])
+        #expect(totals.map(\.counts.output) == [30, 15, 2, 1])
+        #expect(totals[1].messages == 2)
+    }
+
     @Test func rangeStarts() {
         let cal = calendar("UTC")
         #expect(TokenAggregator.rangeStart(.today, now: now, calendar: cal, historyDays: 90) == date("2026-11-17T00:00:00Z"))

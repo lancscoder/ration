@@ -35,6 +35,12 @@ enum PanelSection: String, CaseIterable, Identifiable {
     }
 }
 
+enum TokenTableGrouping: String, CaseIterable, Identifiable {
+    case model, project
+    var id: String { rawValue }
+    var title: String { self == .model ? "By model" : "By project" }
+}
+
 enum TokenChartStyle: String, CaseIterable, Identifiable {
     case columns, dayList
     var id: String { rawValue }
@@ -81,6 +87,7 @@ final class Preferences {
     var hiddenSections: Set<String> { didSet { defaults.set(Array(hiddenSections).sorted(), forKey: "hiddenSections") } }
     var collapsedSections: Set<String> { didSet { defaults.set(Array(collapsedSections).sorted(), forKey: "collapsedSections") } }
     var tokenChartStyle: TokenChartStyle { didSet { defaults.set(tokenChartStyle.rawValue, forKey: "tokenChartStyle") } }
+    var tokenTableGrouping: TokenTableGrouping { didSet { defaults.set(tokenTableGrouping.rawValue, forKey: "tokenTableGrouping") } }
 
     func isVisible(_ section: PanelSection) -> Bool { !hiddenSections.contains(section.rawValue) }
     func setVisible(_ section: PanelSection, _ visible: Bool) {
@@ -135,6 +142,7 @@ final class Preferences {
         hiddenSections = Set(defaults.stringArray(forKey: "hiddenSections") ?? [])
         collapsedSections = Set(defaults.stringArray(forKey: "collapsedSections") ?? [])
         tokenChartStyle = TokenChartStyle(rawValue: defaults.string(forKey: "tokenChartStyle") ?? "") ?? .columns
+        tokenTableGrouping = TokenTableGrouping(rawValue: defaults.string(forKey: "tokenTableGrouping") ?? "") ?? .model
     }
 
     func level(for utilization: Double) -> UsageLevel {

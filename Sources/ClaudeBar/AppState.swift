@@ -9,6 +9,7 @@ struct TokenViewData: Equatable {
     var range: TokenRange = .week
     var buckets: [TokenBucket] = []
     var totals: [ModelTotals] = []
+    var projects: [ProjectTotals] = []
     var granularity: BucketGranularity = .day
 }
 
@@ -322,6 +323,7 @@ final class AppState {
 
     private func recomputeTokensNow() async {
         let records = logSnapshot.records
+        let cwds = logSnapshot.sessionCwds
         let range = tokenRange
         let historyDays = prefs.historyDays
         let calendar = Calendar.current
@@ -331,6 +333,8 @@ final class AppState {
                 range: range,
                 buckets: TokenAggregator.buckets(records, range: range, now: now, calendar: calendar, historyDays: historyDays),
                 totals: TokenAggregator.totalsByModel(records, range: range, now: now, calendar: calendar, historyDays: historyDays),
+                projects: TokenAggregator.totalsByProject(records, sessionCwds: cwds, range: range, now: now,
+                                                          calendar: calendar, historyDays: historyDays),
                 granularity: TokenAggregator.granularity(for: range)
             )
             return (data, TokenAggregator.sessions(records))

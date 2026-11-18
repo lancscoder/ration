@@ -57,6 +57,16 @@ public struct ModelTotals: Identifiable, Sendable, Equatable {
     public var id: String { model }
 }
 
+public struct ProjectTotals: Identifiable, Sendable, Equatable {
+    /// The project folder (`cwd`), or "" when unknown.
+    public var path: String
+    /// Short display name, disambiguated when two folders share a name.
+    public var name: String
+    public var counts: TokenCounts
+    public var messages: Int
+    public var id: String { path }
+}
+
 public struct SessionTokenSummary: Sendable, Equatable {
     public var sessionId: String
     public var firstActivity: Date
@@ -130,6 +140,42 @@ public enum TokenAggregator {
             sums[r.model]!.messages += 1
         }
         return sums.values.sorted { $0.counts.total(includingCacheReads: true) > $1.counts.total(includingCacheReads: true) }
+    }
+
+    /// Totals per project folder, largest first. Records are attributed through their
+    /// session's folder (subagent work counts towards its parent session's project).
+    public static func totalsByProject(_ records: [UsageRecord], sessionCwds: [String: String], range: TokenRange,
+                                       now: Date, calendar: Calendar, historyDays: Int) -> [ProjectTotals] {
+        var sums: [String: (counts: TokenCounts, messages: Int)] = [:]
+        for r in filter(records, range: range, now: now, calendar: calendar, historyDays: historyDays) {
+            let path = sessionCwds[r.sessionId] ?? ""
+            sums[path, default: (TokenCounts(), 0)].counts.add(r.counts)
+            sums[path, default: (TokenCounts(), 0)].messages += 1
+        }
+        let names = projectNames(Array(sums.keys))
+        return sums.map { ProjectTotals(path: $0.key, name: names[$0.key] ?? $0.key, counts: $0.value.counts, messages: $0.value.messages) }
+            .sorted {
+                let a = $0.counts.total(includingCacheReads: true), b = $1.counts.total(includingCacheReads: true)
+                return a != b ? a > b : $0.path < $1.path
+            }
+    }
+
+    /// `/Users/me/code/api` → `api`; folders sharing a last component get their parent too (`work/api`).
+    static func projectNames(_ paths: [String]) -> [String: String] {
+        func last(_ p: String) -> String { URL(fileURLWithPath: p).lastPathComponent }
+        let counts = Dictionary(paths.filter { !$0.isEmpty }.map { (last($0), 1) }, uniquingKeysWith: +)
+        var out: [String: String] = [:]
+        for p in paths {
+            if p.isEmpty { out[p] = "Unknown folder"; continue }
+            let name = last(p)
+            if counts[name, default: 0] > 1 {
+                let parent = URL(fileURLWithPath: p).deletingLastPathComponent().lastPathComponent
+                out[p] = parent.isEmpty ? p : "\(parent)/\(name)"
+            } else {
+                out[p] = name
+            }
+        }
+        return out
     }
 
     public static func sessions(_ records: [UsageRecord]) -> [String: SessionTokenSummary] {

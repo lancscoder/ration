@@ -53,7 +53,19 @@ struct TokensSection: View {
                 case .dayList:
                     TokenDayList(data: data, includeCache: includeCache, historyDays: state.prefs.historyDays)
                 }
-                TotalsTable(totals: data.totals, includeCache: includeCache)
+                Picker("Group totals", selection: $prefs.tokenTableGrouping) {
+                    ForEach(TokenTableGrouping.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.small)
+                .padding(.top, 2)
+                switch state.prefs.tokenTableGrouping {
+                case .model:
+                    TotalsTable(rows: TotalsRow.models(data.totals), title: "Model", includeCache: includeCache)
+                case .project:
+                    TotalsTable(rows: TotalsRow.projects(data.projects), title: "Project", includeCache: includeCache)
+                }
             }
         }
     }
@@ -252,15 +264,50 @@ struct TokenChart: View {
     }
 }
 
+/// One row of the totals table: a model or a project.
+struct TotalsRow: Identifiable {
+    var id: String
+    var name: String
+    var detail: String?
+    var color: Color?
+    var counts: TokenCounts
+    var messages: Int
+
+    static func models(_ totals: [ModelTotals]) -> [TotalsRow] {
+        let scale = ModelPalette.scale(for: totals)
+        return totals.map { t in
+            let name = ModelName.display(t.model)
+            return TotalsRow(id: t.model, name: name, detail: t.model,
+                             color: scale.range[scale.domain.firstIndex(of: name) ?? 0], counts: t.counts, messages: t.messages)
+        }
+    }
+
+    /// The largest `limit` projects, the rest folded into one "Other" row.
+    static func projects(_ totals: [ProjectTotals], limit: Int = 8) -> [TotalsRow] {
+        let home = NSHomeDirectory()
+        var rows = totals.prefix(limit).map { t in
+            TotalsRow(id: t.path, name: t.name, detail: t.path.isEmpty ? nil : t.path.replacingOccurrences(of: home, with: "~"),
+                      color: nil, counts: t.counts, messages: t.messages)
+        }
+        let rest = totals.dropFirst(limit)
+        if !rest.isEmpty {
+            let counts = rest.reduce(into: TokenCounts()) { $0.add($1.counts) }
+            rows.append(TotalsRow(id: "__other", name: "Other (\(rest.count))", detail: rest.map(\.name).joined(separator: ", "),
+                                  color: nil, counts: counts, messages: rest.reduce(0) { $0 + $1.messages }))
+        }
+        return rows
+    }
+}
+
 struct TotalsTable: View {
-    let totals: [ModelTotals]
+    let rows: [TotalsRow]
+    let title: String
     let includeCache: Bool
 
     var body: some View {
-        let scale = ModelPalette.scale(for: totals)
         Grid(alignment: .trailing, horizontalSpacing: 10, verticalSpacing: 4) {
             GridRow {
-                Text("Model")
+                Text(title)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gridColumnAlignment(.leading)
                 Text("Input")
@@ -270,24 +317,31 @@ struct TotalsTable: View {
             }
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.secondary)
+            .accessibilityHidden(true)
             Divider().gridCellUnsizedAxes(.horizontal)
-            ForEach(totals) { t in
-                let name = ModelName.display(t.model)
+            ForEach(rows) { row in
                 GridRow {
                     HStack(spacing: 5) {
-                        Circle().fill(scale.range[scale.domain.firstIndex(of: name) ?? 0]).frame(width: 7, height: 7)
-                        Text(name).lineLimit(1)
+                        if let color = row.color {
+                            Circle().fill(color).frame(width: 7, height: 7)
+                        }
+                        Text(row.name).lineLimit(1).truncationMode(.middle)
                     }
                     .gridColumnAlignment(.leading)
-                    Text(Fmt.tokens(t.counts.input))
-                    Text(Fmt.tokens(t.counts.output))
-                    Text(Fmt.tokens(t.counts.cacheWrite))
-                    Text(Fmt.tokens(t.counts.cacheRead)).foregroundStyle(includeCache ? .primary : .tertiary)
+                    Text(Fmt.tokens(row.counts.input))
+                    Text(Fmt.tokens(row.counts.output))
+                    Text(Fmt.tokens(row.counts.cacheWrite))
+                    Text(Fmt.tokens(row.counts.cacheRead)).foregroundStyle(includeCache ? .primary : .tertiary)
                 }
                 .font(.caption.monospacedDigit())
+                .help(row.detail ?? row.name)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(row.name)
+                .accessibilityValue("\(Fmt.tokens(row.counts.input)) input, \(Fmt.tokens(row.counts.output)) output, "
+                                    + "\(Fmt.tokens(row.counts.cacheWrite)) cache write, \(Fmt.tokens(row.counts.cacheRead)) cache read tokens")
             }
-            if totals.count > 1 {
-                let sum = totals.reduce(into: TokenCounts()) { $0.add($1.counts) }
+            if rows.count > 1 {
+                let sum = rows.reduce(into: TokenCounts()) { $0.add($1.counts) }
                 Divider().gridCellUnsizedAxes(.horizontal)
                 GridRow {
                     Text("Total").gridColumnAlignment(.leading)
@@ -297,11 +351,12 @@ struct TotalsTable: View {
                     Text(Fmt.tokens(sum.cacheRead)).foregroundStyle(includeCache ? .primary : .tertiary)
                 }
                 .font(.caption.weight(.semibold).monospacedDigit())
+                .accessibilityHidden(true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        let total = totals.reduce(0) { $0 + $1.counts.total(includingCacheReads: includeCache) }
-        let messages = totals.reduce(0) { $0 + $1.messages }
+        let total = rows.reduce(0) { $0 + $1.counts.total(includingCacheReads: includeCache) }
+        let messages = rows.reduce(0) { $0 + $1.messages }
         Text("\(Fmt.tokens(total)) tokens\(includeCache ? "" : " excl. cache reads") · \(messages) responses")
             .font(.caption)
             .foregroundStyle(.secondary)
