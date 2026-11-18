@@ -55,6 +55,17 @@ struct ThresholdTests {
         #expect(r.alerts.map(\.threshold) == [75, 90])
     }
 
+    @Test func resetRemindersOnlyForHeavilyUsedFutureWindows() {
+        let now = reset.addingTimeInterval(-3600)
+        let picked = ThresholdTracker.resetReminders(limits: [
+            limit(92),                                              // yes
+            limit(89, id: "seven_day"),                             // too low
+            limit(95, reset: now.addingTimeInterval(30), id: "x"),  // resets within a minute
+            LimitDisplay(id: "y", kind: .session, title: "No reset", utilization: 99, resetsAt: nil),
+        ], now: now)
+        #expect(picked.map(\.id) == ["five_hour"])
+    }
+
     @Test func busyToWaitingTransitions() {
         func s(_ id: String, _ st: SessionState) -> SessionInfo {
             SessionInfo(sessionId: id, pid: 1, procStart: nil, cwd: "/x/\(id)", name: nil, state: st, lastActivity: nil, model: nil, tokens: nil)

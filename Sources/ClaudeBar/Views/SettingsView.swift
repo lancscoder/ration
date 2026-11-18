@@ -107,6 +107,10 @@ struct SettingsView: View {
                 TextField("Thresholds (%)", text: $prefs.notifyThresholds, prompt: Text("75, 90"))
                     .disabled(!prefs.notifyUsage)
                     .help("Comma-separated percentages. Each fires once per 5-hour or weekly window.")
+                Toggle("Notify when a nearly used-up limit resets (90%+)", isOn: $prefs.notifyReset)
+                    .onChange(of: prefs.notifyReset) {
+                        if prefs.notifyReset { state.notifier.requestAuthorization() } else { state.notifier.cancelResetReminders() }
+                    }
                 Toggle("Notify when a session is waiting for input", isOn: $prefs.notifyWaiting)
                     .onChange(of: prefs.notifyWaiting) { if prefs.notifyWaiting { state.notifier.requestAuthorization() } }
                 Button("Send test notification") {

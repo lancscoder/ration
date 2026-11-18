@@ -38,6 +38,19 @@ public enum ThresholdTracker {
         return (alerts, fired)
     }
 
+    /// Usage at or above this is "nearly out", worth a heads-up when the window resets.
+    public static let resetReminderMinimum: Double = 90
+
+    /// Limits that deserve a "limit reset" notification at their reset time:
+    /// heavily used and resetting in the future (more than a minute away, so a
+    /// reminder isn't scheduled for a reset that has effectively already happened).
+    public static func resetReminders(limits: [LimitDisplay], minimum: Double = resetReminderMinimum, now: Date) -> [LimitDisplay] {
+        limits.filter { limit in
+            guard limit.utilization >= minimum, let reset = limit.resetsAt else { return false }
+            return reset.timeIntervalSince(now) > 60
+        }
+    }
+
     /// Sessions that went from busy to waiting between two scans.
     public static func newlyWaiting(old: [SessionInfo], new: [SessionInfo]) -> [SessionInfo] {
         let previous = Dictionary(old.map { ($0.sessionId, $0.state) }, uniquingKeysWith: { a, _ in a })

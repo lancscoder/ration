@@ -49,6 +49,27 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         send(title: "Claude usage passed \(alert.threshold)%", body: body, id: "usage-\(alert.limitID)-\(alert.threshold)")
     }
 
+    /// Schedules (or reschedules, same id) a notification at the limit's reset time.
+    func scheduleResetReminder(_ limit: LimitDisplay) {
+        guard let reset = limit.resetsAt else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "\(limit.title) limit has reset"
+        content.body = "You'd used \(Fmt.percent(limit.utilization)). It's back to 0%."
+        content.sound = .default
+        // A few seconds after the reset so a refresh right away already shows it.
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, reset.timeIntervalSinceNow + 5), repeats: false)
+        center.add(UNNotificationRequest(identifier: "reset-\(limit.id)", content: content, trigger: trigger)) { error in
+            if let error { Self.log.error("reset reminder failed: \(error.localizedDescription, privacy: .public)") }
+        }
+    }
+
+    func cancelResetReminders() {
+        center.getPendingNotificationRequests { requests in
+            let ids = requests.map(\.identifier).filter { $0.hasPrefix("reset-") }
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+        }
+    }
+
     func sendWaiting(_ session: SessionInfo) {
         send(title: "Claude is waiting for you",
              body: "\(session.projectName)\(session.name.map { " · \($0)" } ?? "") finished its turn.",

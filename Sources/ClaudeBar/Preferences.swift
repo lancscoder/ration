@@ -75,6 +75,8 @@ final class Preferences {
     var notifyUsage: Bool { didSet { defaults.set(notifyUsage, forKey: "notifyUsage") } }
     var notifyThresholds: String { didSet { defaults.set(notifyThresholds, forKey: "notifyThresholds") } }
     var notifyWaiting: Bool { didSet { defaults.set(notifyWaiting, forKey: "notifyWaiting") } }
+    /// Notify when a limit you'd nearly used up (90%+) resets.
+    var notifyReset: Bool { didSet { defaults.set(notifyReset, forKey: "notifyReset") } }
 
     var hiddenSections: Set<String> { didSet { defaults.set(Array(hiddenSections).sorted(), forKey: "hiddenSections") } }
     var collapsedSections: Set<String> { didSet { defaults.set(Array(collapsedSections).sorted(), forKey: "collapsedSections") } }
@@ -110,6 +112,7 @@ final class Preferences {
             "notifyUsage": true,
             "notifyThresholds": "75, 90",
             "notifyWaiting": false,
+            "notifyReset": true,
             "tokenChartStyle": TokenChartStyle.columns.rawValue,
         ])
         pollInterval = max(Int(BackoffPolicy.minimumPollInterval), defaults.integer(forKey: "pollInterval"))
@@ -128,6 +131,7 @@ final class Preferences {
         notifyUsage = defaults.bool(forKey: "notifyUsage")
         notifyThresholds = defaults.string(forKey: "notifyThresholds") ?? "75, 90"
         notifyWaiting = defaults.bool(forKey: "notifyWaiting")
+        notifyReset = defaults.bool(forKey: "notifyReset")
         hiddenSections = Set(defaults.stringArray(forKey: "hiddenSections") ?? [])
         collapsedSections = Set(defaults.stringArray(forKey: "collapsedSections") ?? [])
         tokenChartStyle = TokenChartStyle(rawValue: defaults.string(forKey: "tokenChartStyle") ?? "") ?? .columns

@@ -143,7 +143,10 @@ final class AppState {
         let isNewData = snapshot.fetchedAt != usage.fetchedAt
         usage = snapshot
         now = Date()
-        if isNewData, snapshot.status == .ok { checkUsageThresholds() }
+        if isNewData, snapshot.status == .ok {
+            checkUsageThresholds()
+            scheduleResetReminders()
+        }
     }
 
     private func checkUsageThresholds() {
@@ -152,6 +155,14 @@ final class AppState {
         let result = ThresholdTracker.evaluate(limits: limits, thresholds: prefs.parsedNotifyThresholds, fired: notifier.firedKeys)
         notifier.firedKeys = result.fired
         for alert in result.alerts { notifier.sendUsageAlert(alert, now: now) }
+    }
+
+    private func scheduleResetReminders() {
+        guard prefs.notifyReset, let response = usage.response else { return }
+        let limits = [response.session, response.weekly].compactMap { $0 }
+        for limit in ThresholdTracker.resetReminders(limits: limits, now: now) {
+            notifier.scheduleResetReminder(limit)
+        }
     }
 
     /// Manual refresh (`r` / button). Respects rate-limit backoff and a 60 s
