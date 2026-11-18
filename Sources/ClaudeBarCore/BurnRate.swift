@@ -35,6 +35,8 @@ public enum Forecast: Sendable, Equatable {
 public enum BurnRateCalculator {
     /// Window length of the session limit.
     public static let sessionWindow: TimeInterval = 5 * 3600
+    /// Window length of the weekly limit.
+    public static let weeklyWindow: TimeInterval = 7 * 24 * 3600
 
     /// Burn rate of the 5-hour window over the last `lookback` seconds.
     ///
@@ -46,11 +48,29 @@ public enum BurnRateCalculator {
                                    resetsAt: Date?,
                                    lookback: TimeInterval = 3600,
                                    minimumSpan: TimeInterval = 15 * 60) -> BurnRate? {
-        let windowStart = resetsAt.map { $0.addingTimeInterval(-sessionWindow) }
+        rate(samples: samples, value: { ($0.fiveHour, $0.fiveHourResetsAt) }, window: sessionWindow,
+             now: now, resetsAt: resetsAt, lookback: lookback, minimumSpan: minimumSpan)
+    }
+
+    /// Pace of the weekly limit over the last day. A long lookback is deliberate:
+    /// it averages over breaks and nights, which is what matters for a 7-day window.
+    public static func weeklyRate(samples: [QuotaSample],
+                                  now: Date,
+                                  resetsAt: Date?,
+                                  lookback: TimeInterval = 24 * 3600,
+                                  minimumSpan: TimeInterval = 2 * 3600) -> BurnRate? {
+        rate(samples: samples, value: { ($0.weekly, $0.weeklyResetsAt) }, window: weeklyWindow,
+             now: now, resetsAt: resetsAt, lookback: lookback, minimumSpan: minimumSpan)
+    }
+
+    private static func rate(samples: [QuotaSample], value: (QuotaSample) -> (Double?, Date?), window: TimeInterval,
+                             now: Date, resetsAt: Date?, lookback: TimeInterval, minimumSpan: TimeInterval) -> BurnRate? {
+        let windowStart = resetsAt.map { $0.addingTimeInterval(-window) }
         let points: [(Double, Double)] = samples.compactMap { s in
-            guard let pct = s.fiveHour, s.t <= now, now.timeIntervalSince(s.t) <= lookback else { return nil }
+            let (pct, sampleReset) = value(s)
+            guard let pct, s.t <= now, now.timeIntervalSince(s.t) <= lookback else { return nil }
             if let resetsAt {
-                guard let sr = s.fiveHourResetsAt, abs(sr.timeIntervalSince(resetsAt)) < 120 else { return nil }
+                guard let sr = sampleReset, abs(sr.timeIntervalSince(resetsAt)) < 120 else { return nil }
             }
             if let windowStart, s.t < windowStart { return nil }
             return (s.t.timeIntervalSince(now) / 3600, pct)

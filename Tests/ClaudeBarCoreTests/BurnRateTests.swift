@@ -20,6 +20,25 @@ struct BurnRateTests {
         #expect(rate.span == 1800)
     }
 
+    @Test func weeklyPaceOverTheLastDay() throws {
+        let weekReset = now.addingTimeInterval(2 * 24 * 3600)
+        func w(_ hoursAgo: Double, _ pct: Double, reset: Date? = nil) -> QuotaSample {
+            QuotaSample(t: now.addingTimeInterval(-hoursAgo * 3600), fiveHour: nil, fiveHourResetsAt: nil,
+                        weekly: pct, weeklyResetsAt: reset ?? weekReset)
+        }
+        // 1%/h across the last day; a 30-hour-old sample and a previous week's sample are ignored.
+        let samples = [w(30, 0), w(20, 40, reset: now.addingTimeInterval(-3600)), w(20, 30), w(10, 40), w(0, 50)]
+        let rate = try #require(BurnRateCalculator.weeklyRate(samples: samples, now: now, resetsAt: weekReset))
+        #expect(abs(rate.percentPerHour - 1) < 1e-9)
+        #expect(rate.sampleCount == 3)
+
+        // 50% left at 1%/h = 50 h, but the week resets in 48 h → safe, ~98% at reset.
+        #expect(BurnRateCalculator.forecast(current: 50, rate: rate, resetsAt: weekReset, now: now)
+                == .safeUntilReset(projectedAtReset: 98))
+        // Under two hours of data isn't enough.
+        #expect(BurnRateCalculator.weeklyRate(samples: [w(1, 49), w(0, 50)], now: now, resetsAt: weekReset) == nil)
+    }
+
     @Test func needsMinimumSpan() {
         let samples = [sample(minutesAgo: 5, pct: 10), sample(minutesAgo: 0, pct: 12)]
         #expect(BurnRateCalculator.sessionRate(samples: samples, now: now, resetsAt: reset) == nil)
