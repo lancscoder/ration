@@ -29,20 +29,44 @@ struct SessionsSection: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
+            if let notice = state.sessionActionNotice {
+                Label(notice, systemImage: "doc.on.clipboard")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if state.sessions.isEmpty {
                 Text(state.logsLoaded ? "No sessions in the last 24 hours." : "Looking for sessions…")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
-                VStack(spacing: 2) {
-                    ForEach(state.sessions) { session in
-                        SessionRow(session: session, now: state.now, confirmingKill: $confirmingKill,
-                                   onResume: { state.resume(session) },
-                                   onKill: { state.kill(session) })
+                let running = state.sessions.filter(\.isLive)
+                let ended = state.sessions.filter { !$0.isLive }
+                VStack(alignment: .leading, spacing: 2) {
+                    if running.isEmpty {
+                        Text("No sessions running.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                    }
+                    ForEach(running) { row($0) }
+                    if !ended.isEmpty {
+                        Text("Ended in the last 24 hours")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .padding(.horizontal, 6)
+                            .padding(.top, running.isEmpty ? 4 : 8)
+                        ForEach(ended) { row($0) }
                     }
                 }
             }
         }
+    }
+
+    private func row(_ session: SessionInfo) -> some View {
+        SessionRow(session: session, now: state.now, confirmingKill: $confirmingKill,
+                   onResume: { state.resume(session) },
+                   onKill: { state.kill(session) })
     }
 
     private var summary: some View {
@@ -114,7 +138,7 @@ struct SessionRow: View {
                         Label("Resume", systemImage: "arrow.uturn.forward")
                     }
                     .controlSize(.small)
-                    .help("Open your terminal running claude --resume in this project")
+                    .help("Continue this conversation: claude --resume in its project folder")
                 } else {
                     Button {
                         confirmingKill = session.sessionId

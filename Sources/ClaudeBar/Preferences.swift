@@ -14,27 +14,6 @@ enum LabelFormat: String, CaseIterable, Identifiable {
     }
 }
 
-enum TerminalChoice: String, CaseIterable, Identifiable {
-    case terminal, iterm, ghostty, custom
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .terminal: return "Terminal"
-        case .iterm: return "iTerm2"
-        case .ghostty: return "Ghostty"
-        case .custom: return "Custom command"
-        }
-    }
-    var bundleID: String? {
-        switch self {
-        case .terminal: return "com.apple.Terminal"
-        case .iterm: return "com.googlecode.iterm2"
-        case .ghostty: return "com.mitchellh.ghostty"
-        case .custom: return nil
-        }
-    }
-}
-
 enum PanelSection: String, CaseIterable, Identifiable {
     case limits, burnRate, tokens, sessions
     var id: String { rawValue }
@@ -84,7 +63,8 @@ final class Preferences {
     }
     var historyDays: Int { didSet { defaults.set(historyDays, forKey: "historyDays") } }
     var hideCacheReadsByDefault: Bool { didSet { defaults.set(hideCacheReadsByDefault, forKey: "hideCacheReadsByDefault") } }
-    var terminal: TerminalChoice { didSet { defaults.set(terminal.rawValue, forKey: "terminal") } }
+    /// Bundle ID of the terminal for Resume, or `TerminalCatalog.customID`.
+    var terminal: String { didSet { defaults.set(terminal, forKey: "terminal") } }
     var customTerminalCommand: String { didSet { defaults.set(customTerminalCommand, forKey: "customTerminalCommand") } }
     var notifyUsage: Bool { didSet { defaults.set(notifyUsage, forKey: "notifyUsage") } }
     var notifyThresholds: String { didSet { defaults.set(notifyThresholds, forKey: "notifyThresholds") } }
@@ -118,7 +98,7 @@ final class Preferences {
             "labelShowResetTime": false,
             "labelShowStatus": true,
             "hideCacheReadsByDefault": true,
-            "terminal": TerminalChoice.terminal.rawValue,
+            "terminal": TerminalCatalog.defaultID,
             "customTerminalCommand": "open -a Terminal {script}",
             "notifyUsage": true,
             "notifyThresholds": "75, 90",
@@ -135,7 +115,7 @@ final class Preferences {
         labelShowResetTime = defaults.bool(forKey: "labelShowResetTime")
         labelShowStatus = defaults.bool(forKey: "labelShowStatus")
         hideCacheReadsByDefault = defaults.bool(forKey: "hideCacheReadsByDefault")
-        terminal = TerminalChoice(rawValue: defaults.string(forKey: "terminal") ?? "") ?? .terminal
+        terminal = TerminalCatalog.migrate(defaults.string(forKey: "terminal"))
         customTerminalCommand = defaults.string(forKey: "customTerminalCommand") ?? ""
         notifyUsage = defaults.bool(forKey: "notifyUsage")
         notifyThresholds = defaults.string(forKey: "notifyThresholds") ?? "75, 90"

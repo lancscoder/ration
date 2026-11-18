@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var loginError: String?
     @State private var cacheError: String?
     @State private var claudeFolderError: String?
+    @State private var terminals: [TerminalApp] = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,6 +19,7 @@ struct SettingsView: View {
             form
         }
         .onAppear {
+            terminals = TerminalDiscovery.installed()
             launchAtLogin = LaunchAtLogin.isEnabled
             loginStatus = LaunchAtLogin.status
         }
@@ -115,21 +117,32 @@ struct SettingsView: View {
 
             Section {
                 Picker("Resume in", selection: $prefs.terminal) {
-                    ForEach(TerminalChoice.allCases) { choice in
-                        Text(choice.title + (isInstalled(choice) ? "" : " (not installed)")).tag(choice)
+                    ForEach(terminals) { app in
+                        Text(app.name).tag(app.id)
                     }
+                    if prefs.terminal != TerminalCatalog.customID, !terminals.contains(where: { $0.id == prefs.terminal }) {
+                        Text("\(TerminalDiscovery.displayName(id: prefs.terminal)) (not installed)").tag(prefs.terminal)
+                    }
+                    Divider()
+                    Text("Custom command").tag(TerminalCatalog.customID)
                 }
-                if prefs.terminal == .custom {
+                if prefs.terminal == TerminalCatalog.customID {
                     TextField("Command", text: $prefs.customTerminalCommand, prompt: Text("open -a Terminal {script}"))
                         .font(.body.monospaced())
                 }
             } header: {
                 Text("Sessions")
             } footer: {
-                if prefs.terminal == .custom {
-                    Text("Placeholders (shell-quoted): {script} a .command file that cds and runs claude, {cwd}, {sessionId}, {command}. Runs via zsh -lc.")
-                        .font(.caption).foregroundStyle(.secondary)
+                Group {
+                    if prefs.terminal == TerminalCatalog.customID {
+                        Text("Placeholders (shell-quoted): {script} a .command file that cds and runs claude, {cwd}, {sessionId}, {command}. Runs via zsh -lc.")
+                    } else if let app = terminals.first(where: { $0.id == prefs.terminal }), app.needsPaste {
+                        Text("\(app.name) can't be told to run a command, so Resume opens it and copies the command for you to paste.")
+                    } else {
+                        Text("Resume appears on sessions that ended in the last 24 hours. Terminals are detected automatically.")
+                    }
                 }
+                .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Tokens") {
@@ -208,11 +221,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-    }
-
-    private func isInstalled(_ choice: TerminalChoice) -> Bool {
-        guard let id = choice.bundleID else { return true }
-        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) != nil
     }
 
     private var isCacheOverridden: Bool {

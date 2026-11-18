@@ -40,6 +40,8 @@ final class AppState {
     private(set) var sessions: [SessionInfo] = []
     /// Shown briefly in the sessions card when resume/kill fails.
     var sessionActionError: String?
+    /// Non-error feedback for a session action (e.g. "command copied").
+    var sessionActionNotice: String?
     @ObservationIgnored private let sessionMonitor = SessionMonitor()
     @ObservationIgnored private var sessionTimer: Timer?
     @ObservationIgnored private var sessionScanInFlight = false
@@ -227,9 +229,12 @@ final class AppState {
 
     func resume(_ session: SessionInfo) {
         do {
-            try TerminalLauncher.resume(sessionId: session.sessionId, cwd: session.cwd,
-                                        choice: prefs.terminal, customTemplate: prefs.customTerminalCommand)
+            let outcome = try TerminalLauncher.resume(sessionId: session.sessionId, cwd: session.cwd,
+                                                      terminalID: prefs.terminal, customTemplate: prefs.customTerminalCommand)
             sessionActionError = nil
+            if case .copiedCommand(let app) = outcome {
+                showSessionNotice("Resume command copied. Paste it into \(app).")
+            }
         } catch {
             showSessionError(error.localizedDescription)
         }
@@ -250,6 +255,14 @@ final class AppState {
         Task {
             try? await Task.sleep(for: .milliseconds(600))
             refreshSessions()
+        }
+    }
+
+    private func showSessionNotice(_ message: String) {
+        sessionActionNotice = message
+        Task {
+            try? await Task.sleep(for: .seconds(8))
+            if sessionActionNotice == message { sessionActionNotice = nil }
         }
     }
 
