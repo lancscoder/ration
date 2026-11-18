@@ -91,6 +91,24 @@ final class AppState {
             Task.detached { await logStore.flush(); sem.signal() }
             _ = sem.wait(timeout: .now() + 3)
         }
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.didWake() }
+        }
+    }
+
+    /// After sleep everything on screen is stale: refresh local data at once and the
+    /// usage endpoint once the network is back, unless a poll happened recently
+    /// or we're backing off. The normal minimum interval still applies.
+    private func didWake() {
+        now = Date()
+        refreshLogs()
+        Task {
+            try? await Task.sleep(for: .seconds(5)) // give Wi-Fi a moment to reconnect
+            now = Date()
+            if await usageService.canFetchNow(minimumGap: BackoffPolicy.minimumPollInterval) {
+                startPolling(after: 0)
+            }
+        }
     }
 
     /// Loads cached data only (no network); used by `--snapshot`.
