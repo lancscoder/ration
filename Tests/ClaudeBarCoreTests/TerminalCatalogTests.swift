@@ -10,7 +10,9 @@ struct TerminalCatalogTests {
         #expect(TerminalCatalog.migrate("iterm") == "com.googlecode.iterm2")
         #expect(TerminalCatalog.migrate("ghostty") == "com.mitchellh.ghostty")
         #expect(TerminalCatalog.migrate("custom") == "custom")
-        #expect(TerminalCatalog.migrate("dev.herdr.app") == "dev.herdr.app")
+        #expect(TerminalCatalog.migrate("com.cmuxterm.app") == "com.cmuxterm.app")
+        #expect(TerminalCatalog.migrate("dev.herdr.app") == "com.apple.Terminal")
+        #expect(TerminalCatalog.migrate("com.superlogical.rex") == "com.apple.Terminal")
     }
 
     @Test func knownIDsAreUnique() {

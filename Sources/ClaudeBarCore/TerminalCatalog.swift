@@ -59,16 +59,18 @@ public enum TerminalCatalog {
               method: .openArgs(["--directory", "{cwd}", "{script}"]), appNames: []),
         Known(bundleID: "org.alacritty", name: "Alacritty",
               method: .openArgs(["--working-directory", "{cwd}", "-e", "{script}"]), appNames: []),
-        Known(bundleID: "com.superlogical.rex", name: "Rex", method: .pasteCommand(opensFolder: true),
-              appNames: ["Rex.app", "Rex Beta.app"]),
-        Known(bundleID: "dev.herdr.app", name: "Herdr", method: .pasteCommand(opensFolder: false), appNames: ["Herdr.app"]),
         Known(bundleID: "orca", name: "Orca", method: .pasteCommand(opensFolder: false), appNames: ["Orca.app"]),
         Known(bundleID: "co.zeit.hyper", name: "Hyper", method: .pasteCommand(opensFolder: false), appNames: []),
         Known(bundleID: "org.tabby", name: "Tabby", method: .pasteCommand(opensFolder: false), appNames: []),
     ]
 
-    /// Maps the pre-catalog setting values (`terminal`, `iterm`, `ghostty`) to bundle IDs.
+    /// Terminals that were offered once but didn't work; a saved choice falls back to the default.
+    static let withdrawn: Set<String> = ["com.superlogical.rex", "dev.herdr.app"]
+
+    /// Maps the pre-catalog setting values (`terminal`, `iterm`, `ghostty`) to bundle IDs,
+    /// and withdrawn terminals to the default.
     public static func migrate(_ stored: String?) -> String {
+        if let stored, withdrawn.contains(stored) { return defaultID }
         switch stored {
         case nil, "", "terminal": return defaultID
         case "iterm": return "com.googlecode.iterm2"
