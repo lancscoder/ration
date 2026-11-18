@@ -260,7 +260,9 @@ struct TotalsTable: View {
         let scale = ModelPalette.scale(for: totals)
         Grid(alignment: .trailing, horizontalSpacing: 10, verticalSpacing: 4) {
             GridRow {
-                Text("Model").gridColumnAlignment(.leading)
+                Text("Model")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .gridColumnAlignment(.leading)
                 Text("Input")
                 Text("Output")
                 Text("Cache W")

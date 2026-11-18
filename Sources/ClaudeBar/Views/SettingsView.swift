@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var loginStatus = LaunchAtLogin.status
     @State private var loginError: String?
+    @State private var cacheError: String?
 
     var body: some View {
         @Bindable var prefs = state.prefs
@@ -126,23 +127,41 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("General")
+            }
+
+            Section {
+                LabeledContent("Cache folder") {
+                    Text(displayPath(AppPaths.cacheDirectory))
+                        .lineLimit(1).truncationMode(.middle)
+                        .textSelection(.enabled)
+                        .help(AppPaths.cacheDirectory.path)
+                }
+                HStack {
+                    Button("Change…") { chooseCacheFolder() }
+                    if isCacheOverridden {
+                        Button("Use default") { setCacheFolder(nil) }
+                    }
+                    Spacer()
+                    Button("Open in Finder") {
+                        try? FileManager.default.createDirectory(at: AppPaths.cacheDirectory, withIntermediateDirectories: true)
+                        NSWorkspace.shared.open(AppPaths.cacheDirectory)
+                    }
+                }
+                if let cacheError {
+                    Text(cacheError).font(.caption).foregroundStyle(.red)
+                }
+            } header: {
+                Text("Storage")
             } footer: {
-                Text("Install with `make install` first so the login item points at ~/Applications/ClaudeBar.app.")
+                Text("Holds the last usage response, quota history and the token index. Changing it moves those files and relaunches ClaudeBar.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("About") {
                 LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")
                 LabeledContent("Logs", value: AppPaths.claudeRoots().map { $0.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") }.joined(separator: ", "))
-                HStack {
-                    Button("Open cache folder") {
-                        try? FileManager.default.createDirectory(at: AppPaths.cacheDirectory, withIntermediateDirectories: true)
-                        NSWorkspace.shared.open(AppPaths.cacheDirectory)
-                    }
-                    Spacer()
-                    Text("Usage data comes from an undocumented endpoint and may change.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                Text("Usage data comes from an undocumented endpoint and may change.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -156,6 +175,54 @@ struct SettingsView: View {
     private func isInstalled(_ choice: TerminalChoice) -> Bool {
         guard let id = choice.bundleID else { return true }
         return NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) != nil
+    }
+
+    private var isCacheOverridden: Bool {
+        AppPaths.cacheDirectory.standardizedFileURL != AppPaths.defaultCacheDirectory.standardizedFileURL
+    }
+
+    private func displayPath(_ url: URL) -> String {
+        url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+
+    private func chooseCacheFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Use Folder"
+        panel.message = "Choose where ClaudeBar keeps its cache files."
+        panel.directoryURL = AppPaths.cacheDirectory.deletingLastPathComponent()
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        setCacheFolder(url)
+    }
+
+    /// Moves the cache files, stores the new folder (nil = default) and relaunches,
+    /// since the caches are opened once at launch.
+    private func setCacheFolder(_ url: URL?) {
+        let old = AppPaths.cacheDirectory
+        let new = (url ?? AppPaths.defaultCacheDirectory).standardizedFileURL
+        guard new != old.standardizedFileURL else { return }
+        do {
+            try FileManager.default.createDirectory(at: new, withIntermediateDirectories: true)
+            guard FileManager.default.isWritableFile(atPath: new.path) else {
+                cacheError = "\(displayPath(new)) isn't writable."
+                return
+            }
+            try AppPaths.moveCacheFiles(from: old, to: new)
+        } catch {
+            cacheError = "Couldn't move the cache: \(error.localizedDescription)"
+            return
+        }
+        if let url {
+            UserDefaults.standard.set(url.standardizedFileURL.path, forKey: AppPaths.cacheDirectoryKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: AppPaths.cacheDirectoryKey)
+        }
+        cacheError = nil
+        Relauncher.relaunch()
     }
 
     private func applyLaunchAtLogin() {
