@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var loginStatus = LaunchAtLogin.status
     @State private var loginError: String?
     @State private var cacheError: String?
+    @State private var claudeFolderError: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,13 +30,13 @@ struct SettingsView: View {
             } label: {
                 Label("Back", systemImage: "chevron.left")
             }
-            .controlSize(.small)
+            .controlSize(.regular)
             .help("Back to usage (Esc)")
             Spacer()
             Text("Settings").font(.headline)
             Spacer()
             // Balances the back button so the title stays centred.
-            Label("Back", systemImage: "chevron.left").controlSize(.small).hidden()
+            Label("Back", systemImage: "chevron.left").hidden()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -157,6 +158,22 @@ struct SettingsView: View {
             }
 
             Section {
+                LabeledContent("Claude folder") {
+                    Text(claudeRootsText)
+                        .lineLimit(1).truncationMode(.middle)
+                        .textSelection(.enabled)
+                        .help(AppPaths.claudeRoots().map(\.path).joined(separator: "\n"))
+                }
+                HStack {
+                    Button("Change…") { chooseClaudeFolder() }
+                    if AppPaths.claudeFolderOverride() != nil {
+                        Button("Detect automatically") { setClaudeFolder(nil) }
+                    }
+                    Spacer()
+                }
+                if let claudeFolderError {
+                    Text(claudeFolderError).font(.caption).foregroundStyle(.red)
+                }
                 LabeledContent("Cache folder") {
                     Text(displayPath(AppPaths.cacheDirectory))
                         .lineLimit(1).truncationMode(.middle)
@@ -178,15 +195,14 @@ struct SettingsView: View {
                     Text(cacheError).font(.caption).foregroundStyle(.red)
                 }
             } header: {
-                Text("Storage")
+                Text("Folders")
             } footer: {
-                Text("Holds the last usage response, quota history and the token index. Changing it moves those files and relaunches ClaudeBar.")
+                Text("Claude folder: where Claude Code keeps its logs and sessions (normally ~/.claude, or CLAUDE_CONFIG_DIR). Cache folder: ClaudeBar's own files; changing it moves them. Either change relaunches ClaudeBar.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("About") {
                 LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")
-                LabeledContent("Logs", value: AppPaths.claudeRoots().map { $0.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") }.joined(separator: ", "))
                 Text("Usage data comes from an undocumented endpoint and may change.")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -205,6 +221,44 @@ struct SettingsView: View {
 
     private func displayPath(_ url: URL) -> String {
         url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+
+    private var claudeRootsText: String {
+        let roots = AppPaths.claudeRoots()
+        guard !roots.isEmpty else { return "Not found" }
+        let text = roots.map(displayPath).joined(separator: ", ")
+        return AppPaths.claudeFolderOverride() == nil ? text + " (auto)" : text
+    }
+
+    private func chooseClaudeFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.showsHiddenFiles = true
+        panel.prompt = "Use Folder"
+        panel.message = "Choose your Claude Code folder (the one containing projects/ and sessions/)."
+        panel.directoryURL = AppPaths.claudeRoots().first ?? FileManager.default.homeDirectoryForCurrentUser
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        setClaudeFolder(url)
+    }
+
+    /// Stores the Claude folder (nil = auto-detect) and relaunches, since the
+    /// log index, session monitor and credentials are set up at launch.
+    private func setClaudeFolder(_ url: URL?) {
+        if let url {
+            guard AppPaths.looksLikeClaudeFolder(url) else {
+                claudeFolderError = "\(displayPath(url)) has no projects or sessions folder, so it doesn't look like a Claude Code folder."
+                return
+            }
+            guard url.standardizedFileURL != AppPaths.claudeFolderOverride() else { return }
+            UserDefaults.standard.set(url.standardizedFileURL.path, forKey: AppPaths.claudeFolderKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: AppPaths.claudeFolderKey)
+        }
+        claudeFolderError = nil
+        Relauncher.relaunch()
     }
 
     private func chooseCacheFolder() {

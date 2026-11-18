@@ -62,7 +62,7 @@ struct PanelView: View {
             } label: {
                 Label(ClaudeLauncher.title, systemImage: "arrow.up.forward.app")
             }
-            .controlSize(.small)
+            .controlSize(.regular)
             .help(ClaudeLauncher.desktopAppURL == nil ? "Open claude.ai in your browser" : "Open the Claude desktop app")
         }
     }

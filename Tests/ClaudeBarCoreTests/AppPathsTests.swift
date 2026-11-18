@@ -44,4 +44,26 @@ struct AppPathsTests {
         #expect(fm.fileExists(atPath: old.appendingPathComponent("unrelated.txt").path))
         #expect(!fm.fileExists(atPath: new.appendingPathComponent("unrelated.txt").path))
     }
+
+    @Test func claudeFolderOverrideReplacesAutoDetection() throws {
+        try withDefaults { d in
+            #expect(AppPaths.claudeFolderOverride(defaults: d) == nil)
+            #expect(AppPaths.configDir(defaults: d, environment: ["CLAUDE_CONFIG_DIR": "/env/dir"]) == "/env/dir")
+            d.set("~/work/.claude", forKey: AppPaths.claudeFolderKey)
+            let override = try #require(AppPaths.claudeFolderOverride(defaults: d))
+            #expect(override.path == NSHomeDirectory() + "/work/.claude")
+            #expect(AppPaths.configDir(defaults: d, environment: ["CLAUDE_CONFIG_DIR": "/env/dir"]) == override.path)
+            #expect(AppPaths.claudeRoots(configDir: "/env/dir", override: override) == [override])
+        }
+    }
+
+    @Test func recognisesClaudeFolder() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("claudebar-\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: root) }
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        #expect(!AppPaths.looksLikeClaudeFolder(root))
+        try fm.createDirectory(at: root.appendingPathComponent("projects"), withIntermediateDirectories: true)
+        #expect(AppPaths.looksLikeClaudeFolder(root))
+    }
 }

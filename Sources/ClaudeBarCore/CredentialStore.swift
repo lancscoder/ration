@@ -68,7 +68,8 @@ public enum CredentialError: Error, Equatable, Sendable {
 /// refresh and log the user out.
 ///
 /// Lookup order (mirrors `ai-usagebar`):
-/// 1. Keychain service `Claude Code-credentials-<sha256(configDir)[0..8]>` when `CLAUDE_CONFIG_DIR` is set
+/// 1. Keychain service `Claude Code-credentials-<sha256(configDir)[0..8]>` when a config dir is set
+///    (the Claude folder chosen in Settings, else `CLAUDE_CONFIG_DIR`)
 /// 2. Keychain service `Claude Code-credentials`
 /// 3. `<configDir or ~/.claude>/.credentials.json` (often a stale stub on macOS)
 ///
@@ -80,7 +81,7 @@ public struct CredentialStore: Sendable {
 
     public var configDir: String?
 
-    public init(configDir: String? = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"]) {
+    public init(configDir: String? = AppPaths.configDir()) {
         let trimmed = configDir?.trimmingCharacters(in: .whitespaces)
         self.configDir = (trimmed?.isEmpty ?? true) ? nil : (trimmed! as NSString).expandingTildeInPath
     }

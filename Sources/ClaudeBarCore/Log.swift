@@ -41,8 +41,31 @@ public enum AppPaths {
         }
     }
 
+    /// UserDefaults key holding a user-chosen Claude Code folder (absolute path).
+    public static let claudeFolderKey = "claudeFolderOverride"
+
+    /// The Claude Code folder the user picked in Settings, if any.
+    public static func claudeFolderOverride(defaults: UserDefaults = .standard) -> URL? {
+        guard let path = defaults.string(forKey: claudeFolderKey)?.trimmingCharacters(in: .whitespaces), !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true).standardizedFileURL
+    }
+
+    /// The config dir to use for credentials: the Settings override, else `CLAUDE_CONFIG_DIR`.
+    public static func configDir(defaults: UserDefaults = .standard,
+                                 environment: [String: String] = ProcessInfo.processInfo.environment) -> String? {
+        claudeFolderOverride(defaults: defaults)?.path ?? environment["CLAUDE_CONFIG_DIR"]
+    }
+
+    /// Whether a folder looks like a Claude Code config folder (has logs or session files).
+    public static func looksLikeClaudeFolder(_ url: URL) -> Bool {
+        ["projects", "sessions"].contains { FileManager.default.fileExists(atPath: url.appendingPathComponent($0).path) }
+    }
+
     /// Root Claude Code config directories to scan (deduplicated, existing only).
-    public static func claudeRoots(configDir: String? = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"]) -> [URL] {
+    /// A folder chosen in Settings replaces auto-detection entirely.
+    public static func claudeRoots(configDir: String? = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"],
+                                   override: URL? = claudeFolderOverride()) -> [URL] {
+        if let override { return [override] }
         let home = FileManager.default.homeDirectoryForCurrentUser
         var candidates: [URL] = []
         if let configDir, !configDir.isEmpty {
