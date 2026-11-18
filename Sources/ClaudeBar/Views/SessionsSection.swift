@@ -34,8 +34,8 @@ struct SessionsSection: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            if state.sessions.isEmpty {
-                Text(state.logsLoaded ? "No sessions in the last 24 hours." : "Looking for sessions…")
+            if !state.logsLoaded && state.sessions.isEmpty {
+                Text("Looking for sessions…")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
@@ -49,15 +49,19 @@ struct SessionsSection: View {
                             .padding(.horizontal, 6)
                     }
                     ForEach(running) { row($0) }
-                    if !ended.isEmpty {
-                        Text("Ended in the last 24 hours")
-                            .font(.caption2.weight(.semibold))
+                    Text("Ended in the last \(state.prefs.endedSessionWindowText)")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.horizontal, 6)
+                        .padding(.top, 8)
+                    if ended.isEmpty {
+                        Text("None. Resume appears here once a session ends.")
+                            .font(.caption)
                             .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
                             .padding(.horizontal, 6)
-                            .padding(.top, running.isEmpty ? 4 : 8)
-                        ForEach(ended) { row($0) }
                     }
+                    ForEach(ended) { row($0) }
                 }
             }
         }

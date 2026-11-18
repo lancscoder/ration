@@ -126,6 +126,11 @@ struct SettingsView: View {
                     Divider()
                     Text("Custom command").tag(TerminalCatalog.customID)
                 }
+                Picker("List ended sessions from", selection: $prefs.endedSessionDays) {
+                    ForEach(Preferences.endedSessionDayChoices, id: \.self) { days in
+                        Text(days == 1 ? "Last 24 hours" : "Last \(days) days").tag(days)
+                    }
+                }
                 if prefs.terminal == TerminalCatalog.customID {
                     TextField("Command", text: $prefs.customTerminalCommand, prompt: Text("open -a Terminal {script}"))
                         .font(.body.monospaced())
@@ -139,7 +144,7 @@ struct SettingsView: View {
                     } else if let app = terminals.first(where: { $0.id == prefs.terminal }), app.needsPaste {
                         Text("\(app.name) can't be told to run a command, so Resume opens it and copies the command for you to paste.")
                     } else {
-                        Text("Resume appears on sessions that ended in the last 24 hours. Terminals are detected automatically.")
+                        Text("Resume appears on ended sessions in the panel. Terminals are detected automatically.")
                     }
                 }
                 .font(.caption).foregroundStyle(.secondary)

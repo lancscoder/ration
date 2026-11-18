@@ -103,6 +103,28 @@ struct LogStoreTests {
         #expect(snap.records.count == 3)
     }
 
+    @Test func sessionFolderComesFromMainTranscriptNotSubagentWorktree() async throws {
+        let (root, project) = try makeTree()
+        try (line(id: "m1") + "\n").write(to: project.appendingPathComponent("\(sid).jsonl"), atomically: false, encoding: .utf8)
+        let sub = project.appendingPathComponent("\(sid)/subagents")
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        // Several subagent logs so a lucky iteration order can't hide the bug.
+        for i in 0..<8 {
+            let worktree = line(id: "s\(i)").replacingOccurrences(of: "/Users/me/code/alpha", with: "/Users/me/code/alpha/.claude/worktrees/agent-\(i)")
+            try (worktree + "\n").write(to: sub.appendingPathComponent("agent-\(i).jsonl"), atomically: false, encoding: .utf8)
+        }
+        // A session whose main transcript is gone still gets the subagent's folder.
+        let orphan = "11111111-aaaa-bbbb-cccc-000000000002"
+        let orphanSub = project.appendingPathComponent("\(orphan)/subagents")
+        try FileManager.default.createDirectory(at: orphanSub, withIntermediateDirectories: true)
+        try (line(id: "o1", session: orphan) + "\n").write(to: orphanSub.appendingPathComponent("agent-x.jsonl"), atomically: false, encoding: .utf8)
+
+        let snap = await LogStore(projectRoots: [root], cacheURL: nil).refresh()
+        #expect(snap.sessionCwds[sid] == "/Users/me/code/alpha")
+        #expect(snap.sessionCwds[orphan] == "/Users/me/code/alpha")
+        #expect(snap.sessionFiles[orphan] == nil)
+    }
+
     @Test func rescansTruncatedFileAndDropsDeleted() async throws {
         let (root, project) = try makeTree()
         let file = project.appendingPathComponent("\(sid).jsonl")

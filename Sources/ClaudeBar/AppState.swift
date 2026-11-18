@@ -212,7 +212,8 @@ final class AppState {
 
     private func scanSessions() async {
         let logs = logSnapshot
-        let found = await sessionMonitor.scan(sessionFiles: logs.sessionFiles, sessionCwds: logs.sessionCwds, summaries: sessionTokens)
+        let found = await sessionMonitor.scan(sessionFiles: logs.sessionFiles, sessionCwds: logs.sessionCwds, summaries: sessionTokens,
+                                             recentWindow: TimeInterval(prefs.endedSessionDays) * 86400)
         let previous = sessions
         if found != previous {
             sessions = found

@@ -151,15 +151,25 @@ public actor LogStore {
     private func buildSnapshot(now: Date) -> LogSnapshot {
         let records = UsageDeduplicator.merge(files.values.lazy.map(\.records))
         var cwds: [String: String] = [:]
+        var subagentCwds: [String: String] = [:]
         var sessionFiles: [String: URL] = [:]
         for (path, state) in files {
-            if let sid = state.sessionId, let cwd = state.cwd, cwds[sid] == nil { cwds[sid] = cwd }
             let url = URL(fileURLWithPath: path)
-            // Top-level transcripts are named after their session; subagent logs live deeper.
-            if url.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent == "projects" {
+            // Top-level transcripts are named after their session; subagent logs live deeper
+            // and share the parent's sessionId, but may run in a worktree with a different cwd.
+            let isTopLevel = url.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent == "projects"
+            if isTopLevel {
                 sessionFiles[url.deletingPathExtension().lastPathComponent] = url
             }
+            guard let sid = state.sessionId, let cwd = state.cwd else { continue }
+            if isTopLevel {
+                cwds[sid] = cwd
+            } else if subagentCwds[sid] == nil {
+                subagentCwds[sid] = cwd
+            }
         }
+        // A subagent's cwd is only a fallback when the main transcript is missing.
+        cwds.merge(subagentCwds) { main, _ in main }
         return LogSnapshot(records: records, sessionCwds: cwds, sessionFiles: sessionFiles, fileCount: files.count, scannedAt: now)
     }
 

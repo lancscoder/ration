@@ -62,6 +62,12 @@ final class Preferences {
                             showPercent: labelShowPercent, showCountdown: labelShowCountdown, showResetTime: labelShowResetTime)
     }
     var historyDays: Int { didSet { defaults.set(historyDays, forKey: "historyDays") } }
+    /// How far back ended sessions are listed (for Resume).
+    var endedSessionDays: Int { didSet { defaults.set(endedSessionDays, forKey: "endedSessionDays") } }
+    static let endedSessionDayChoices = [1, 3, 7, 14, 30]
+
+    /// "24 hours" / "7 days"
+    var endedSessionWindowText: String { endedSessionDays == 1 ? "24 hours" : "\(endedSessionDays) days" }
     var hideCacheReadsByDefault: Bool { didSet { defaults.set(hideCacheReadsByDefault, forKey: "hideCacheReadsByDefault") } }
     /// Bundle ID of the terminal for Resume, or `TerminalCatalog.customID`.
     var terminal: String { didSet { defaults.set(terminal, forKey: "terminal") } }
@@ -93,6 +99,7 @@ final class Preferences {
             "criticalThreshold": 85,
             "labelFormat": LabelFormat.session.rawValue,
             "historyDays": 90,
+            "endedSessionDays": 7,
             "labelShowPercent": true,
             "labelShowCountdown": true,
             "labelShowResetTime": false,
@@ -110,6 +117,7 @@ final class Preferences {
         criticalThreshold = defaults.integer(forKey: "criticalThreshold")
         labelFormat = LabelFormat(rawValue: defaults.string(forKey: "labelFormat") ?? "") ?? .session
         historyDays = max(1, defaults.integer(forKey: "historyDays"))
+        endedSessionDays = max(1, defaults.integer(forKey: "endedSessionDays"))
         labelShowPercent = defaults.bool(forKey: "labelShowPercent")
         labelShowCountdown = defaults.bool(forKey: "labelShowCountdown")
         labelShowResetTime = defaults.bool(forKey: "labelShowResetTime")
