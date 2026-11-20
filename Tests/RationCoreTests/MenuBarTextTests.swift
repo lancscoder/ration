@@ -24,9 +24,11 @@ struct MenuBarTextTests {
     @Test func eachPieceToggles() {
         #expect(text(MenuBarLabelOptions(showPercent: true, showCountdown: false)) == "29%")
         #expect(text(MenuBarLabelOptions(showPercent: false, showCountdown: true)) == "1h12m")
-        #expect(text(MenuBarLabelOptions(showPercent: false, showCountdown: false, showResetTime: true)).contains("19:10"))
+        // The reset time follows the Mac's 12/24-hour setting: "19:10" or "7:10 PM".
+        func showsResetTime(_ s: String) -> Bool { s.contains("19:10") || s.contains("7:10") }
+        #expect(showsResetTime(text(MenuBarLabelOptions(showPercent: false, showCountdown: false, showResetTime: true))))
         let all = text(MenuBarLabelOptions(showPercent: true, showCountdown: true, showResetTime: true))
-        #expect(all.hasPrefix("29% · 1h12m · ") && all.contains("19:10"))
+        #expect(all.hasPrefix("29% · 1h12m · ") && showsResetTime(all))
     }
 
     @Test func nothingSelectedMeansIconOnly() {
