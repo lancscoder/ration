@@ -17,7 +17,7 @@ Ground rules the code follows; please keep to them:
 
 ## Releases
 
-Every merge to `main` publishes a release through GitHub Actions (`.github/workflows/ci.yml`). Changes that only touch Markdown files or the licence don't.
+Every merge to `main` publishes a release through GitHub Actions (`.github/workflows/ci.yml`). Changes that only touch Markdown files, the licence, `packaging/` or `.github/` don't.
 
 1. The workflow runs the tests on macOS.
 2. `scripts/next-version.sh` picks the version. The `VERSION` file holds the minimum. If it's ahead of the latest `v*` tag it's used as is; otherwise the latest tag's patch number goes up by one. To release a new minor or major version, change `VERSION` in your pull request (e.g. to `1.2.0`).

@@ -9,7 +9,8 @@ on:
     paths-ignore:
       - "**.md"
       - "LICENSE"
-      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/**"
+      - "packaging/**"
 
 permissions:
   contents: read

@@ -9,7 +9,7 @@ cask "ration" do
 
   # Ration updates itself (signed updates from GitHub Releases).
   auto_updates true
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Ration.app"
 

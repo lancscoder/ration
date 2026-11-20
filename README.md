@@ -28,7 +28,9 @@ Requires macOS 14 or later and Claude Code logged in with a Pro or Max subscript
 ### Homebrew
 
 ```sh
-brew install --cask lancscoder/tap/ration
+brew tap lancscoder/tap
+brew trust lancscoder/tap     # Homebrew asks you to trust third-party taps once
+brew install --cask ration
 ```
 
 ### Download
