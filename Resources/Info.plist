@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>ClaudeBar</string>
+	<string>Ration</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
@@ -13,9 +13,9 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>ClaudeBar</string>
+	<string>Ration</string>
 	<key>CFBundleDisplayName</key>
-	<string>ClaudeBar</string>
+	<string>Ration</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -31,6 +31,8 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Personal build. Not affiliated with Anthropic.</string>
+	<string>MIT License. Not affiliated with Anthropic.</string>
+	<key>RationReleaseBuild</key>
+	<__RELEASE__/>
 </dict>
 </plist>

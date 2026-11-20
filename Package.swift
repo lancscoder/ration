@@ -2,29 +2,29 @@
 import PackageDescription
 
 let package = Package(
-    name: "ClaudeBar",
+    name: "Ration",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "ClaudeBar", targets: ["ClaudeBar"]),
-        .executable(name: "claudebar-hook", targets: ["claudebar-hook"]),
-        .library(name: "ClaudeBarCore", targets: ["ClaudeBarCore"]),
+        .executable(name: "Ration", targets: ["Ration"]),
+        .executable(name: "ration-hook", targets: ["ration-hook"]),
+        .library(name: "RationCore", targets: ["RationCore"]),
     ],
     targets: [
         // Data layer: no UI dependencies, so a CLI or widget can reuse it later.
-        .target(name: "ClaudeBarCore"),
+        .target(name: "RationCore"),
         // Menu bar app (SwiftUI).
         .executableTarget(
-            name: "ClaudeBar",
-            dependencies: ["ClaudeBarCore"]
+            name: "Ration",
+            dependencies: ["RationCore"]
         ),
         // Tiny helper Claude Code hooks call (optional "hooks mode").
         .executableTarget(
-            name: "claudebar-hook",
-            dependencies: ["ClaudeBarCore"]
+            name: "ration-hook",
+            dependencies: ["RationCore"]
         ),
         .testTarget(
-            name: "ClaudeBarCoreTests",
-            dependencies: ["ClaudeBarCore"],
+            name: "RationCoreTests",
+            dependencies: ["RationCore"],
             resources: [.copy("Fixtures")]
         ),
     ]

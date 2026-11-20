@@ -1,0 +1,32 @@
+cask "ration" do
+  version "__VERSION__"
+  sha256 "__SHA256__"
+
+  url "https://github.com/lancscoder/ration/releases/download/v#{version}/Ration-#{version}.zip"
+  name "Ration"
+  desc "Claude Code usage limits, burn rate, tokens and sessions in the menu bar"
+  homepage "https://github.com/lancscoder/ration"
+
+  # Ration updates itself (signed updates from GitHub Releases).
+  auto_updates true
+  depends_on macos: ">= :sonoma"
+
+  app "Ration.app"
+
+  uninstall quit: "io.github.lancscoder.ration"
+
+  zap trash: [
+    "~/Library/Application Support/io.github.lancscoder.ration",
+    "~/Library/Caches/io.github.lancscoder.ration",
+    "~/Library/Preferences/io.github.lancscoder.ration.plist",
+  ]
+
+  caveats <<~EOS
+    Ration isn't signed with an Apple Developer ID yet, so macOS blocks the first launch.
+    Open it once, then allow it in System Settings → Privacy & Security → "Open Anyway",
+    or run:
+      xattr -dr com.apple.quarantine "#{appdir}/Ration.app"
+
+    If you turned on hooks mode, remove Ration's hooks in Settings before uninstalling.
+  EOS
+end

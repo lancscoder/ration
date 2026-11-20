@@ -1,0 +1,62 @@
+name: CI
+
+# Pull requests: build and test.
+# Merges to main: build, test, sign and publish a GitHub release.
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        run: swift test
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: macos-15
+    permissions:
+      contents: write
+    # One release at a time, in merge order.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags, for the next version and the build number
+
+      - name: Work out the version
+        id: version
+        run: echo "version=$(scripts/next-version.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Build, zip and sign
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          test -n "$UPDATE_SIGNING_KEY" || { echo "::error::UPDATE_SIGNING_KEY secret is not set"; exit 1; }
+          key="$RUNNER_TEMP/update-signing-key"
+          umask 077
+          printf '%s' "$UPDATE_SIGNING_KEY" > "$key"
+          make package cask VERSION=${{ steps.version.outputs.version }} SIGNING_KEY="$key"
+          rm -f "$key"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" \
+            "build/Ration-$VERSION.zip" "build/Ration-$VERSION.zip.sig" "build/ration.rb" \
+            --target "$GITHUB_SHA" --title "Ration $VERSION" --generate-notes
